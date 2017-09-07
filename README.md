@@ -7,7 +7,7 @@ Collection of analysis scripts, workflows, (primary/secondary) data used in publ
 
 ## Description of folders:
 
-Jowhar_Methods_2017: Jowhar _et. al._, "HiCTMap: Detection and Analysis of Chromosome Territory Structure and Position by High-throughput Imaging". _Methods_, Submitted on Sept 06, 2017.
+[Jowhar_Methods_2017](https://github.com/CBIIT/Misteli-Lab-CCR-NCI/tree/master/Jowhar_Methods_2017): Jowhar _et. al._, "HiCTMap: Detection and Analysis of Chromosome Territory Structure and Position by High-throughput Imaging". _Methods_, Submitted on Sept 06, 2017.
 
 
 ## For further details please contact:
