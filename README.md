@@ -12,7 +12,7 @@ Collection of analysis scripts, workflows, (primary/secondary) data used in publ
 
 ## For further details please contact:
 
-**Tom Misteli, Ph.D.** 
+**Tom Misteli, Ph.D.**  
 Email: [mistelit@mail.nih.gov](mailto:mistelit@mail.nih.gov)
 
 [Director, Center for Cancer Research](https://ccr.cancer.gov/about)  
