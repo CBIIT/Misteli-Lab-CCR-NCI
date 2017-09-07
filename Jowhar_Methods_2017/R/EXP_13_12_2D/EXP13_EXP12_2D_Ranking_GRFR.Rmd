@@ -1,0 +1,596 @@
+---
+title: "Data analysis for CTs ploting and statistical calculations"
+author: "Sigal Shachar"
+date: "December 27 2016"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+### Introduction
+
+This script analyzes data obtained by imaging primary human fibroblasts stained with chromosome paints for chr X (green channel), Y (FarRed channel)  and 18 (Red channel). Cells were grown in PE-cellCarrierUltra 384 plates and imaged using the YOKOGAWA CV7000 microscope with a 60X-water or 40X-air objective. Images were imported into KNIME and analyzed and the results were exported as tab separated txt files.
+The script reads the txt files and calculates several features in 2D and in 3D including: Number of CTs per nucleus, nucleus size, CT size, CT centroid/COM distance from border and biggest or smallest X CT ranked.
+Finally, it calculates p values and difference between medians using Wilcoxon test for the centroid distance from border diatributions.
+
+Load packages.
+```{r}
+library('plyr')
+library('dplyr')
+library('ggplot2')
+library('stringr')
+library('knitr')
+library('SpatialTools')
+library('reshape2')
+library('DT')
+library('data.table')
+library('Hmisc')
+```
+
+
+Read the CSV files into R
+```{r ReadCsvFiles}
+###Exp 13 2D
+FR_Data_All_train_13 <- fread(file="../CSV_Files/EXP13_2D_18XY/AllWells_EXP13_2D_Y_FarRedProbeMeasurements.csv", check.names = T, showProgress = T)
+
+R_Data_All_train_13 <- fread(file="../CSV_Files/EXP13_2D_18XY/AllWells_EXP13_2D_18_RedProbeMeasurements/AllWells_EXP13_2D_18_RedProbeMeasurements.csv", check.names = T, showProgress = T)
+
+G_Data_All_train_13 <- fread(file="../CSV_Files/EXP13_2D_18XY/AllWells_EXP13_2D_X_GreenProbeMeasurements.csv", check.names = T, showProgress = T)
+
+AllColors_2D_13 <- rbind(FR_Data_All_train_13, R_Data_All_train_13, G_Data_All_train_13)
+
+#Add New Plate Column#
+FR_Data_All_train_13$EXPPlate<- "Exp132D"
+R_Data_All_train_13$EXPPlate<- "Exp132D"
+G_Data_All_train_13$EXPPlate<- "Exp132D"
+AllColors_2D_13$EXPPlate<- "Exp132D"
+
+#FR_Data_All_train_13 <- subset(FR_Data_All_train_13, Karyotype ==c('XY'))
+#R_Data_All_train_13 <- subset(R_Data_All_train_13, Karyotype ==c('XX') | Karyotype ==c('XY'))
+#G_Data_All_train_13 <- subset(G_Data_All_train_13, Karyotype ==c('XX') | Karyotype ==c('XY'))
+
+
+####Exp 12 2D
+FR_Data_All_train_12XY18 <- fread(file="../CSV_Files/EXP12_2D_18XY/WellsC03toE05_EXP12_2D_Y_FarRedProbeMeasurements.csv", check.names = T, showProgress = T)
+
+R_Data_All_train_12XY18 <- fread(file="../CSV_Files/EXP12_2D_18XY/WellsC03toE05_EXP12_2D_18_RedProbeMeasurements.csv", check.names = T, showProgress = T)
+
+G_Data_All_train_12XY18 <- fread(file="../CSV_Files/WellsC03toE05_EXP12_2D_X_GreenProbeMeasurements.csv", check.names = T, showProgress = T)
+
+AllColors_2D_12xy18 <- rbind(FR_Data_All_train_12XY18, R_Data_All_train_12XY18, G_Data_All_train_12XY18)
+
+#Add New Plate Column#
+FR_Data_All_train_12XY18$EXPPlate<- "Exp122D"
+R_Data_All_train_12XY18$EXPPlate<- "Exp122D"
+G_Data_All_train_12XY18$EXPPlate<- "Exp122D"
+AllColors_2D_12xy18$EXPPlate<- "Exp12D"
+
+#FR_Data_All_train_12XY18 <- subset(FR_Data_All_train_12XY18, Karyotype ==c('XY'))
+#R_Data_All_train_12XY18 <- subset(R_Data_All_train_12XY18, Karyotype ==c('XX') | Karyotype ==c('XY'))
+#G_Data_All_train_12XY18 <- subset(G_Data_All_train_12XY18, Karyotype ==c('XX') | Karyotype ==c('XY'))
+
+###########
+
+#Merge EXP 12 and 13
+FR_EXP12_13<- rbind(FR_Data_All_train_13, FR_Data_All_train_12XY18)
+R_EXP12_13<- rbind(R_Data_All_train_13, R_Data_All_train_12XY18)
+G_EXP12_13<- rbind(G_Data_All_train_13, G_Data_All_train_12XY18)
+AllColors_2D_12_13 <- rbind(FR_EXP12_13, R_EXP12_13, G_EXP12_13)
+
+```
+
+
+Generate a new data frame in which CTs are grouped by well, field, nuc ID, probe color. In 2D and in 3D. Note that for 3D csv files, variable names were parsed from the string and may be different in later versions.
+```{r groupCTbyVariables}
+FR_group_All_train_13 <- FR_Data_All_train_13[ ,.(CT_number = .N), by = .(Well.Position,
+                                                  Karyotype,
+                                                         FieldNumber,
+                                                         NucleusID,
+                                                  Size..Geometric.Features.2D.,
+                                                         CT.Probe.Color)]
+
+  
+R_group_All_train_13 <- R_Data_All_train_13[ ,.(CT_number = .N), by = .(Well.Position,
+                                                  Karyotype,
+                                                         FieldNumber,
+                                                         NucleusID,
+                                                  Size..Geometric.Features.2D.,
+                                                         CT.Probe.Color)]
+
+G_group_All_train_13 <- G_Data_All_train_13[ ,.(CT_number = .N), by = .(Well.Position,
+                                                  Karyotype,
+                                                         FieldNumber,
+                                                         NucleusID,
+                                                  Size..Geometric.Features.2D.,
+                                                         CT.Probe.Color)]
+#######
+
+FR_group_All_train_12 <- FR_Data_All_train_12XY18[ ,.(CT_number = .N), by = .(Well.Position,
+                                                  Karyotype,
+                                                         FieldNumber,
+                                                         NucleusID,
+                                                  Size..Geometric.Features.2D.,
+                                                         CT.Probe.Color)]
+
+  
+R_group_All_train_12 <- R_Data_All_train_12XY18[ ,.(CT_number = .N), by = .(Well.Position,
+                                                  Karyotype,
+                                                         FieldNumber,
+                                                         NucleusID,
+                                                  Size..Geometric.Features.2D.,
+                                                         CT.Probe.Color)]
+
+G_group_All_train_12 <- G_Data_All_train_12XY18[ ,.(CT_number = .N), by = .(Well.Position,
+                                                  Karyotype,
+                                                         FieldNumber,
+                                                         NucleusID,
+                                                  Size..Geometric.Features.2D.,
+                                                         CT.Probe.Color)]
+
+########
+
+FR_group_All_train_12_13 <- FR_EXP12_13[ ,.(CT_number = .N), by = .(Well.Position,
+                                                  Karyotype,
+                                                         FieldNumber,
+                                                         NucleusID,
+                                                  Size..Geometric.Features.2D.,
+                                                         CT.Probe.Color, EXPPlate)]
+
+  
+R_group_All_train_12_13 <- R_EXP12_13[ ,.(CT_number = .N), by = .(Well.Position,
+                                                  Karyotype,
+                                                         FieldNumber,
+                                                         NucleusID,
+                                                  Size..Geometric.Features.2D.,
+                                                         CT.Probe.Color, EXPPlate)]
+
+G_group_All_train_12_13 <- G_EXP12_13[ ,.(CT_number = .N), by = .(Well.Position,
+                                                  Karyotype,
+                                                         FieldNumber,
+                                                         NucleusID,
+                                                  Size..Geometric.Features.2D.,
+                                                         CT.Probe.Color, EXPPlate)]
+
+
+```
+
+
+
+### Graphical Exploratory Data Analysis and Calculations
+
+First of all, some quality control on the CT numbers per well in 2D.
+```{r CTnumberPerwell2D, echo=FALSE, fig.width = 12}
+ 
+g2D.ct.all.13 <- ggplot(G_group_All_train_13, aes(x = CT_number, y = ..density..)) 
+
+g2D.ct.all.13.p <- g2D.ct.all.13      + geom_histogram(fill = "#56B4E9", color = "#999999", binwidth = 1) + 
+                  stat_bin(binwidth = 1, geom = "text", aes(label=..density..), vjust = 1.5)+
+                 ylab('Density') + 
+                 coord_cartesian(xlim = c(0,6)) +
+                 scale_x_continuous(breaks = 0:5) +
+                 scale_y_continuous(limits = c(0, 1))+
+                 xlab('Number of Green CTs per Cell EXP 13 in 2D') + 
+                 facet_wrap(~ Well.Position + Karyotype, ncol = 3)  
+
+g2D.ct.all.13.p
+
+g2D.ct.all.13.pg <- ggplot_build(g2D.ct.all.13.p)
+g2D.ct.all.13.pg.df <- (g2D.ct.all.13.pg$data[[1]]) 
+
+
+r2D.ct.all.13 <- ggplot(R_group_All_train_13, aes(x = CT_number, y = ..density..)) 
+
+r2D.ct.all.13.p <- r2D.ct.all.13      + geom_histogram(fill = "#56B4E9", color = "#999999", binwidth = 1) + 
+                  stat_bin(binwidth = 1, geom = "text", aes(label=..density..), vjust = 1.5)+
+                 ylab('Density') + 
+                 coord_cartesian(xlim = c(0,5)) +
+                 scale_x_continuous(breaks = 0:5) +
+                 scale_y_continuous(limits = c(0, 1))+
+                 xlab('Number of Red CTs per Cell EXP 13 in 2D') + 
+                 facet_wrap(~ Well.Position + Karyotype, ncol = 3)  
+
+r2D.ct.all.13.p
+
+r2D.ct.all.13.pg <- ggplot_build(r2D.ct.all.13.p)
+r2D.ct.all.13.pg.df <- (r2D.ct.all.13.pg$data[[1]])
+
+
+fr2D.ct.all.13 <- ggplot(FR_group_All_train_13, aes(x = CT_number, y = ..density..)) 
+
+fr2D.ct.all.13.p <- fr2D.ct.all.13      + geom_histogram(fill = "#56B4E9", color = "#999999", binwidth = 1) + 
+                  stat_bin(binwidth = 1, geom = "text", aes(label=..density..), vjust = 1.5)+
+                 ylab('Density') + 
+                 coord_cartesian(xlim = c(0,5)) +
+                 scale_x_continuous(breaks = 0:5) +
+                 scale_y_continuous(limits = c(0, 1))+
+                 xlab('Number of FarRed CTs per Cell EXP 13 in 2D') + 
+                 facet_wrap(~ Well.Position + Karyotype, ncol = 3)  
+
+fr2D.ct.all.13.p
+
+fr2D.ct.all.13.pg <- ggplot_build(fr2D.ct.all.13.p)
+fr2D.ct.all.13.pg.df <- (fr2D.ct.all.13.pg$data[[1]])
+
+######
+
+g2D.ct.all.12 <- ggplot(G_group_All_train_12, aes(x = CT_number, y = ..density..)) 
+
+g2D.ct.all.12.p <- g2D.ct.all.12      + geom_histogram(fill = "#56B4E9", color = "#999999", binwidth = 1) + 
+                  stat_bin(binwidth = 1, geom = "text", aes(label=..density..), vjust = 1.5)+
+                 ylab('Density') + 
+                 coord_cartesian(xlim = c(0,8)) +
+                 scale_x_continuous(breaks = 0:8) +
+                 scale_y_continuous(limits = c(0, 1))+
+                 xlab('Number of Green CTs per Cell EXP 12 in 2D') + 
+                 facet_wrap(~ Well.Position + Karyotype, ncol = 3)  
+
+g2D.ct.all.12.p
+
+g2D.ct.all.12.pg <- ggplot_build(g2D.ct.all.12.p)
+g2D.ct.all.12.pg.df <- (g2D.ct.all.12.pg$data[[1]]) 
+
+
+r2D.ct.all.12 <- ggplot(R_group_All_train_12, aes(x = CT_number, y = ..density..)) 
+
+r2D.ct.all.12.p <- r2D.ct.all.12      + geom_histogram(fill = "#56B4E9", color = "#999999", binwidth = 1) + 
+                  stat_bin(binwidth = 1, geom = "text", aes(label=..density..), vjust = 1.5)+
+                 ylab('Density') + 
+                 coord_cartesian(xlim = c(0,5)) +
+                 scale_x_continuous(breaks = 0:5) +
+                 scale_y_continuous(limits = c(0, 1))+
+                 xlab('Number of Red CTs per Cell EXP 12 in 2D') + 
+                 facet_wrap(~ Well.Position + Karyotype, ncol = 3)  
+
+r2D.ct.all.12.p
+
+r2D.ct.all.12.pg <- ggplot_build(r2D.ct.all.12.p)
+r2D.ct.all.12.pg.df <- (r2D.ct.all.12.pg$data[[1]])
+
+
+fr2D.ct.all.12 <- ggplot(FR_group_All_train_12, aes(x = CT_number, y = ..density..)) 
+
+fr2D.ct.all.12.p <- fr2D.ct.all.12      + geom_histogram(fill = "#56B4E9", color = "#999999", binwidth = 1) + 
+                  stat_bin(binwidth = 1, geom = "text", aes(label=..density..), vjust = 1.5)+
+                 ylab('Density') + 
+                 coord_cartesian(xlim = c(0,5)) +
+                 scale_x_continuous(breaks = 0:5) +
+                 scale_y_continuous(limits = c(0, 1))+
+                 xlab('Number of FarRed CTs per Cell EXP 12 in 2D') + 
+                 facet_wrap(~ Well.Position + Karyotype, ncol = 3)  
+
+fr2D.ct.all.12.p
+
+fr2D.ct.all.12.pg <- ggplot_build(fr2D.ct.all.12.p)
+fr2D.ct.all.12.pg.df <- (fr2D.ct.all.12.pg$data[[1]])
+
+######
+
+g2D.ct.all.12.13 <- ggplot(G_group_All_train_12_13, aes(x = CT_number, y = ..density..)) 
+
+g2D.ct.all.12.13.p <- g2D.ct.all.12.13      + geom_histogram(fill = "#56B4E9", color = "#999999", binwidth = 1) + 
+                  stat_bin(binwidth = 1, geom = "text", aes(label=..density..), vjust = 1.5)+
+                 ylab('Density') + 
+                 coord_cartesian(xlim = c(0,8)) +
+                 scale_x_continuous(breaks = 0:8) +
+                 scale_y_continuous(limits = c(0, 1))+
+                 xlab('Number of Green CTs per Cell EXP 12 in 2D') + 
+                 facet_wrap(~ Well.Position + Karyotype, ncol = 3)  
+
+g2D.ct.all.12.13.p
+
+g2D.ct.all.12.13.pg <- ggplot_build(g2D.ct.all.12.13.p)
+g2D.ct.all.12.13.pg.df <- (g2D.ct.all.12.13.pg$data[[1]]) 
+
+
+r2D.ct.all.12.13 <- ggplot(R_group_All_train_12_13, aes(x = CT_number, y = ..density..)) 
+
+r2D.ct.all.12.13.p <- r2D.ct.all.12.13      + geom_histogram(fill = "#56B4E9", color = "#999999", binwidth = 1) + 
+                  stat_bin(binwidth = 1, geom = "text", aes(label=..density..), vjust = 1.5)+
+                 ylab('Density') + 
+                 coord_cartesian(xlim = c(0,5)) +
+                 scale_x_continuous(breaks = 0:5) +
+                 scale_y_continuous(limits = c(0, 1))+
+                 xlab('Number of Red CTs per Cell EXP 12 in 2D') + 
+                 facet_wrap(~ Well.Position + Karyotype, ncol = 3)  
+
+r2D.ct.all.12.13.p
+
+r2D.ct.all.12.13.pg <- ggplot_build(r2D.ct.all.12.13.p)
+r2D.ct.all.12.13.pg.df <- (r2D.ct.all.12.13.pg$data[[1]])
+
+
+fr2D.ct.all.12.13 <- ggplot(FR_group_All_train_12_13, aes(x = CT_number, y = ..density..)) 
+
+fr2D.ct.all.12.13.p <- fr2D.ct.all.12.13      + geom_histogram(fill = "#56B4E9", color = "#999999", binwidth = 1) + 
+                  stat_bin(binwidth = 1, geom = "text", aes(label=..density..), vjust = 1.5)+
+                 ylab('Density') + 
+                 coord_cartesian(xlim = c(0,5)) +
+                 scale_x_continuous(breaks = 0:5) +
+                 scale_y_continuous(limits = c(0, 1))+
+                 xlab('Number of FarRed CTs per Cell EXP 12 in 2D') + 
+                 facet_wrap(~ Well.Position + Karyotype, ncol = 3)  
+
+fr2D.ct.all.12.13.p
+
+fr2D.ct.all.12.13.pg <- ggplot_build(fr2D.ct.all.12.13.p)
+fr2D.ct.all.12.13.pg.df <- (fr2D.ct.all.12.13.pg$data[[1]])
+
+######
+
+```
+
+
+Calculate p-values comparing the negative controls with the samples using the Mann-Whitney test. No multiple testing correction is employed. Run only once
+```{r  Mann1, results='hide'}
+pValues <- function(a, b){
+            test.results <- wilcox.test(a,b)
+            test.results$p.value
+}
+```
+
+
+
+Operations to filter out cells that have more CTs than expected. Also generates a data table that contains only nuclei that have the exact number of chromosomes CTs as expected by karyotype in 2D.
+```{r filter}
+#Columns to retain
+keep <- c(5, 7, 14:21, 25, 27, 75, 92, 123:140)
+G_Data_All_train_13 <- G_Data_All_train_13[, keep, with=FALSE]
+R_Data_All_train_13 <- R_Data_All_train_13[, keep, with=FALSE]
+FR_Data_All_train_13 <- FR_Data_All_train_13[, keep, with=FALSE]
+
+#Generates a new data table that counts the number of CTs per nucleus 
+cell_G_13 <- G_Data_All_train_13[,.(ct_number = .N),by = .(Well.Position, FieldNumber, Karyotype, NucleusID)]
+cell_R_13 <- R_Data_All_train_13[,.(ct_number = .N),by = .(Well.Position, FieldNumber, Karyotype, NucleusID)]
+cell_FR_13 <- FR_Data_All_train_13[,.(ct_number = .N),by = .(Well.Position, FieldNumber, Karyotype, NucleusID)]
+
+#Joins the 2 data tables together by CT, adding a column called ct_number
+setkey(G_Data_All_train_13, Well.Position, FieldNumber, Karyotype, NucleusID)
+setkey(cell_G_13, Well.Position, FieldNumber, Karyotype, NucleusID)
+G_Data_CTs_13_Tnumber <- G_Data_All_train_13[cell_G_13, nomatch = 0]
+
+setkey(R_Data_All_train_13, Well.Position, FieldNumber, Karyotype, NucleusID)
+setkey(cell_R_13, Well.Position, FieldNumber, Karyotype, NucleusID)
+R_Data_CTs_13_Tnumber <- R_Data_All_train_13[cell_R_13, nomatch = 0]
+
+setkey(FR_Data_All_train_13, Well.Position, FieldNumber, Karyotype, NucleusID)
+setkey(cell_FR_13, Well.Position, FieldNumber, Karyotype, NucleusID)
+FR_Data_CTs_13_Tnumber <- FR_Data_All_train_13[cell_FR_13, nomatch = 0]
+
+#Generate a threshold table that determines the expected CT number per karyotype, then join this table with the previous table
+Karyotypes_G <- G_Data_CTs_13_Tnumber[, unique(Karyotype)]
+thres_table_G = data.table(Karyotype = Karyotypes_G, threshold = c(2, 1, 2))
+setkey(G_Data_CTs_13_Tnumber,Karyotype)
+setkey(thres_table_G,Karyotype)
+G_Data_CTs_13_Tnumber2 <- G_Data_CTs_13_Tnumber[thres_table_G, nomatch = 0]
+
+Karyotypes_R <- R_Data_CTs_13_Tnumber[, unique(Karyotype)]
+thres_table_R = data.table(Karyotype = Karyotypes_R, threshold = c(2, 2, 2))
+setkey(R_Data_CTs_13_Tnumber,Karyotype)
+setkey(thres_table_R,Karyotype)
+R_Data_CTs_13_Tnumber2 <- R_Data_CTs_13_Tnumber[thres_table_R, nomatch = 0]
+
+Karyotypes_FR <- FR_Data_CTs_13_Tnumber[, unique(Karyotype)]
+thres_table_FR = data.table(Karyotype = Karyotypes_FR, threshold = c(1, 1))
+setkey(FR_Data_CTs_13_Tnumber,Karyotype)
+setkey(thres_table_FR,Karyotype)
+FR_Data_CTs_13_Tnumber2 <- FR_Data_CTs_13_Tnumber[thres_table_FR, nomatch = 0]
+
+
+#Generate 2 new data tables: one with the exact expected CT number and one with the expected number or smaller
+G_Data_CTs_13_filter_exact <- G_Data_CTs_13_Tnumber2[ct_number == threshold,]
+R_Data_CTs_13_filter_exact <- R_Data_CTs_13_Tnumber2[ct_number == threshold,]
+FR_Data_CTs_13_filter_exact <- FR_Data_CTs_13_Tnumber2[ct_number == threshold,]
+AllColors_2D_13_exact <- rbind(G_Data_CTs_13_filter_exact, R_Data_CTs_13_filter_exact, FR_Data_CTs_13_filter_exact)
+
+#G_Data_CTs_filter_equalOrLess <- G_Data_CTs_13_Tnumber2[ct_number <= threshold,]
+#R_Data_CTs_filter_equalOrLess <- R_Data_CTs_13_Tnumber2[ct_number <= threshold,]
+#FR_Data_CTs_filter_equalOrLess <- FR_Data_CTs_13_Tnumber2[ct_number <= threshold,]
+#AllColors_2D_13_equalorless <- rbind(G_Data_CTs_filter_equalOrLess, R_Data_CTs_filter_equalOrLess, FR_Data_CTs_filter_equalOrLess)
+
+```
+
+
+Let's rank the CTs in each nucleus by their size (descending order) as well as count the number CTs in each nucleus
+```{r rankCTs}
+
+X.Rank.2D.G.13 <- ddply(G_Data_CTs_13_filter_exact, .(interaction (Well.Position, FieldNumber, NucleusID)),transform, X.Rank =  order(Size..Geometric.Features.2D._CT,decreasing=T))
+
+X.Rank.2D.G.13 <- as.data.table(X.Rank.2D.G.13)
+
+```
+
+
+Let's plot the ranked CTs. First, we remove nuclei with CTs greater than 5. Next, we do a Box plot of CT area split by Karyotype and CTRank.
+```{r XCTRank, fig.width = 16}
+
+X.Rank.2D.G.13.XX.XY <- X.Rank.2D.G.13 [X.Rank.2D.G.13$Karyotype == "XY" | X.Rank.2D.G.13$Karyotype == "XX", ]
+R_Data_CTs_13_filter_exact <- R_Data_CTs_13_filter_exact [Karyotype == "XX" | Karyotype == "XY" , ]
+AllColors_2D_13_exact_XX_XY <- AllColors_2D_13_exact [Karyotype == "XX" | Karyotype == "XY" , ]
+AllColors_2D_13_exact_XY <- AllColors_2D_13_exact [Karyotype == "XY" , ]
+
+
+g13 <- ggplot(X.Rank.2D.G.13.XX.XY, aes(x=Karyotype, y = Size..Geometric.Features.2D._CT , fill= factor(X.Rank))) 
+
+g13 + geom_boxplot(notch = TRUE) + 
+  #geom_point(position=position_jitterdodge(), size = 0.15)+
+  scale_fill_brewer(palette = "PRGn")+
+  ggtitle('X CT Size Ranking')+
+  ylab( 'X CT Area (Pixels)')+
+   scale_y_continuous(limits = c(40, 500))+
+  theme(legend.position = "right", legend.text=element_text(size=25, face="bold"), plot.title = element_text(hjust = 0.5), axis.text = element_text(size = 25), axis.title = element_text(size = 25, face="bold"),text = element_text(size = 25), panel.background = element_rect(fill='white', colour='black'), axis.text.x= element_text(colour="grey20",size=20,face="bold"), axis.text.y = element_text(colour="grey20",size=20,face="bold"), panel.border = element_rect(linetype = "dashed", fill = NA)) 
+ 
+X.Rank.2D.G.13.XX.XY.R1 <- X.Rank.2D.G.13.XX.XY[X.Rank.2D.G.13.XX.XY$X.Rank == "1",]
+
+X.Rank.2D.G.13.XX <- X.Rank.2D.G.13.XX.XY[X.Rank.2D.G.13.XX.XY$Karyotype == "XX",]
+
+```
+
+
+Nuclear Area and Volume
+```{r NucArea2D, echo=FALSE, fig.width = 12}
+Nuc_area2D_All <- ggplot(AllColors_2D_13_exact_XX_XY, aes(x = Karyotype, y = Size..Geometric.Features.2D.)) 
+
+Nuc_area2D_All        + geom_boxplot(aes(fill= Karyotype), size = 0 , notch = TRUE) + 
+                 scale_fill_brewer(palette = "PRGn")+
+                 #geom_jitter(width = 0.5, size = 0.1)+
+                 scale_y_continuous(limits = c(4000, 12000))+
+                 labs(title = "2D Nuclear Size Analysis")+
+                 ylab('Nucleus Area (Pixels)') + 
+                 xlab('Karyotype')+
+                 theme(legend.position = "right", legend.text=element_text(size=25, face="bold"), plot.title = element_text(hjust = 0.5), axis.text = element_text(size = 25), axis.title = element_text(size = 25, face="bold"),text = element_text(size = 25), panel.background = element_rect(fill='white', colour='black'), axis.text.x= element_text(colour="grey20",size=20,face="bold"), axis.text.y = element_text(colour="grey20",size=20,face="bold"), panel.border = element_rect(linetype = "dashed", fill = NA)) 
+
+```
+
+2D and 3D Analysis of All Chromosome Colors and X-CT
+```{r CTArea2D, echo=FALSE, fig.width = 12}
+
+CT_area2D_All <- ggplot(AllColors_2D_13_exact_XY, aes(x = CT.Probe.Color, y = Size..Geometric.Features.2D._CT)) 
+
+CT_area2D_All        + geom_boxplot(aes(fill= factor (CT.Probe.Color)), size = 0 , notch = TRUE) + 
+                 scale_fill_brewer(palette = "PRGn")+
+                 #geom_jitter(width = 0.2, size = 0.05)+
+                 scale_y_continuous(limits = c(40, 500))+
+                 ylab('CT Area (Pixels)') + 
+                 labs(title = "2D Chromosome Territoty Size Analysis")+
+                 xlab('Karyotype')+
+                theme(legend.position = "right", legend.text=element_text(size=25, face="bold"), plot.title = element_text(hjust = 0.5), axis.text = element_text(size = 25), axis.title = element_text(size = 25, face="bold"),text = element_text(size = 25), panel.background = element_rect(fill='white', colour='black'), axis.text.x= element_text(colour="grey20",size=20,face="bold"), axis.text.y = element_text(colour="grey20",size=20,face="bold"), panel.border = element_rect(linetype = "dashed", fill = NA))  
+
+
+CT_area2D_G <- ggplot(X.Rank.2D.G.13.XX.XY, aes(x = Karyotype, y = Size..Geometric.Features.2D._CT)) 
+
+CT_area2D_G        + geom_boxplot(aes(fill= factor (Karyotype)), size = 0 , notch = TRUE) + 
+                 scale_fill_brewer(palette = "PRGn")+
+                 #geom_jitter(width = 0.2, size = 0.05)+
+                 scale_y_continuous(limits = c(40, 500))+
+                 #labs(title = "X Chromosome Territoty Size Analysis")+
+                 ylab('X CT Area (Pixels)') + 
+                 xlab('Karyotype')+
+                theme(legend.position = "right", legend.text=element_text(size=25, face="bold"), plot.title = element_text(hjust = 0.5), axis.text = element_text(size = 25), axis.title = element_text(size = 25, face="bold"),text = element_text(size = 25), panel.background = element_rect(fill='white', colour='black'), axis.text.x= element_text(colour="grey20",size=20,face="bold"), axis.text.y = element_text(colour="grey20",size=20,face="bold"), panel.border = element_rect(linetype = "dashed", fill = NA))  
+
+ 
+CT_area2D_G <- ggplot(X.Rank.2D.G.13.XX.XY, aes(x = Karyotype, y = Size..Geometric.Features.2D._CT)) 
+
+CT_area2D_G        + geom_boxplot(aes(fill= factor (X.Rank)), size = 0 , notch = TRUE) + 
+                 scale_fill_brewer(palette = "PRGn")+
+                 #geom_jitter(width = 0.2, size = 0.05)+
+                 scale_y_continuous(limits = c(40, 500))+
+                 #labs(title = "X Chromosome Territoty Size Analysis")+
+                 ylab('X CT Area (Pixels)') + 
+                 xlab('Karyotype')+
+                theme(legend.position = "right", legend.text=element_text(size=25, face="bold"), plot.title = element_text(hjust = 0.5), axis.text = element_text(size = 25), axis.title = element_text(size = 25, face="bold"),text = element_text(size = 25), panel.background = element_rect(fill='white', colour='black'), axis.text.x= element_text(colour="grey20",size=20,face="bold"), axis.text.y = element_text(colour="grey20",size=20,face="bold"), panel.border = element_rect(linetype = "dashed", fill = NA))  
+
+```
+
+
+Centroid Analysis of All chromosomes 
+```{r CTCentroidAnalysis2D, echo=FALSE, fig.width = 12}
+AllColors.centroid.2D <- ggplot(AllColors_2D_13_exact_XY, aes(x = Normalized.Centriod.DistanceMap, color = CT.Probe.Color))+ 
+                 geom_density(size=1, adjust = 1.3) +
+                 scale_color_brewer(palette = "Dark2") +
+                 scale_y_continuous(expand = c(0, 0), limits = c(0, 3)) + scale_x_continuous(expand = c(0, 0)) + 
+                 ylab('Density') +
+                 theme_bw()+
+                 theme(text = element_text(size=20),
+               axis.text.x = element_text(angle=0, size=20),
+         #axis.text.y = element_text(colour="white"),
+         #axis.title = element_text(colour="white"),
+               legend.position = "top")+
+              xlab('X centroid distance from border')
+print(AllColors.centroid.2D)
+
+X.Rank.2D.G.13.XX <- subset(X.Rank.2D.G.13, Karyotype ==c('XX'))
+X.Rank1and2.centroid.XX.g <- ggplot(X.Rank.2D.G.13.XX, aes(x = Normalized.Centriod.DistanceMap,  color = X.Rank))+ 
+                 geom_density(aes(color = factor (X.Rank)),size=1, adjust = 1.2) +
+                 scale_color_brewer(palette = "Dark2") +
+                 ylab('Density') +
+                 theme_bw()+
+                 theme(text = element_text(size=20),
+               axis.text.x = element_text(angle=0, size=20),
+         #axis.text.y = element_text(colour="white"),
+         #axis.title = element_text(colour="white"),
+               legend.position = "top")+
+              xlab('XX karyotype X Rank #1 and#2 centroid distance from border')
+print(X.Rank1and2.centroid.XX.g)
+
+```
+
+
+Equidistant Shell Analysis of All chromosomes
+```{r CTShellAnalysis2D, echo=FALSE, fig.width = 12}
+
+AllColors_2D_13_exact_XY$Pct.Shell1 <- (AllColors_2D_13_exact_XY$NumPixelsdistantShell1 / AllColors_2D_13_exact_XY$NumPixelsAlldistantShells ) 
+AllColors_2D_13_exact_XY$Pct.Shell2 <- (AllColors_2D_13_exact_XY$NumPixelsdistantShell2 / AllColors_2D_13_exact_XY$NumPixelsAlldistantShells ) 
+AllColors_2D_13_exact_XY$Pct.Shell3 <- (AllColors_2D_13_exact_XY$NumPixelsdistantShell3 / AllColors_2D_13_exact_XY$NumPixelsAlldistantShells ) 
+AllColors_2D_13_exact_XY$Pct.Shell4 <- (AllColors_2D_13_exact_XY$NumPixelsdistantShell4 / AllColors_2D_13_exact_XY$NumPixelsAlldistantShells ) 
+AllColors_2D_13_exact_XY$Pct.Shell5 <- (AllColors_2D_13_exact_XY$NumPixelsdistantShell5 / AllColors_2D_13_exact_XY$NumPixelsAlldistantShells ) 
+
+AllColors_Data_melt <- melt(AllColors_2D_13_exact_XY, measure.vars = c("Pct.Shell1", "Pct.Shell2", "Pct.Shell3", "Pct.Shell4", "Pct.Shell5" ),
+variable.name = "Shell.Number", na.rm = FALSE, value.name = "value", factorsAsStrings = TRUE)
+
+AllColors_Pct_Per.Shell <- AllColors_Data_melt[, .(ave_perc = mean(value))
+                      , by = .(Well.Position, Karyotype, Shell.Number, CT.Probe.Color)]
+
+AllColors_Shells_plot <- ggplot(AllColors_Pct_Per.Shell,aes(Shell.Number, ave_perc, colour = CT.Probe.Color)) +  
+  stat_summary(fun.data = mean_cl_normal, position = position_dodge(0.5), size = 2)+
+  scale_color_brewer(palette = "Dark2") +
+  scale_y_continuous(limits = c(0, 0.45))+
+                 ylab('Average Percent of CT in Equidistant Shell') +
+                 theme(legend.position = "right", legend.text=element_text(size=25, face="bold"), plot.title = element_text(hjust = 0.5), axis.text = element_text(size = 25), axis.title = element_text(size = 25, face="bold"),text = element_text(size = 25), panel.background = element_rect(fill='white', colour='black'), axis.text.x= element_text(colour="grey20",size=20,face="bold"), axis.text.y = element_text(colour="grey20",size=20,face="bold"), panel.border = element_rect(linetype = "dashed", fill = NA))
+ 
+print(AllColors_Shells_plot)
+
+```
+
+
+Create an additional table for p-values according to the Mann-Whitney tests (one sample vs each of the other ones) 
+```{r createPvalueTablesXRank, results='hide'}
+
+#XX Rank 1 vs XY Rank 1 
+XX.X.CT.Size.Rank.1 <- X.Rank.2D.G.13.XX.XY.R1[X.Rank == "1", Size..Geometric.Features.2D._CT ,]
+
+pValues.X.CT.Size.Rank.1 <- X.Rank.2D.G.13.XX.XY.R1[, 
+                     list(mannWhit.pValue = pValues(XX.X.CT.Size.Rank.1, Size..Geometric.Features.2D._CT),
+                          median.X.CT.Size.Rank.1 = median(Size..Geometric.Features.2D._CT)),
+                     by = Karyotype]
+
+
+#Rank 1 vs. 2 XX
+XX.X.CT.Size.Rank.1v2 <- X.Rank.2D.G.13.XX.XY[Karyotype == "XX", Size..Geometric.Features.2D._CT ,]
+
+pValues.X.CT.Size.Rank.1v2 <- X.Rank.2D.G.13.XX.XY[, 
+                     list(mannWhit.pValue = pValues(XX.X.CT.Size.Rank.1v2, Size..Geometric.Features.2D._CT),
+                          median.X.CT.Size.Rank.1v2 = median(Size..Geometric.Features.2D._CT)),
+                     by = X.Rank]
+
+```
+
+
+Create an additional table for p-values according to the Mann-Whitney tests (one sample vs each of the other ones) 
+```{r createPvalueTablesNucArea, results='hide'}
+XX.Nuc.Area <- AllColors_2D_13_exact_XX_XY[Karyotype == "XX", Size..Geometric.Features.2D.]
+
+pValues.nuc.area <- AllColors_2D_13_exact_XX_XY[, 
+                     list(mannWhit.pValue = pValues(XX.Nuc.Area, Size..Geometric.Features.2D.),
+                          median.nuc.size = median(Size..Geometric.Features.2D.)),
+                     by = Karyotype]
+
+```
+
+
+Create an additional table for p-values according to the Mann-Whitney tests (one sample vs each of the other ones) 
+```{r createPvalueTablesXCTSize, results='hide'}
+XX.X.CT.Size <- G_Data_CTs_13_filter_exact[Karyotype == "XX", Size..Geometric.Features.2D._CT]
+
+pValues.X.CT.Size <- G_Data_CTs_13_filter_exact[, 
+                     list(mannWhit.pValue = pValues(XX.X.CT.Size, Size..Geometric.Features.2D._CT),
+                          median.X.CT.Size = median(Size..Geometric.Features.2D._CT)),
+                     by = Karyotype]
+
+```
+
+
+
+Document the information about the analysis session
+```{r sessionInfo, include=TRUE, echo=TRUE, results='markup'}
+sessionInfo()
+```

@@ -1,0 +1,228 @@
+---
+title: "Data analysis for CTs ploting and statistical calculations"
+author: "Sigal Shachar"
+date: "December 27 2016"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+### Introduction
+
+This script analyzes data obtained by imaging primary human fibroblasts stained with chromosome paints for chr X (green channel), Y (FarRed channel)  and 18 (Red channel). Cells were grown in PE-cellCarrierUltra 384 plates and imaged using the YOKOGAWA CV7000 microscope with a 60X-water or 40X-air objective. Images were imported into KNIME and analyzed and the results were exported as tab separated txt files.
+The script reads the txt files and calculates several features in 2D and in 3D including: Number of CTs per nucleus, nucleus size, CT size, CT centroid/COM distance from border and biggest or smallest X CT ranked.
+Finally, it calculates p values and difference between medians using Wilcoxon test for the centroid distance from border diatributions.
+
+Load packages.
+```{r}
+library('plyr')
+library('dplyr')
+library('ggplot2')
+library('stringr')
+library('knitr')
+library('SpatialTools')
+library('reshape2')
+library('DT')
+library('data.table')
+library('Hmisc')
+```
+
+
+EXP12 XYXIST
+```{r ReadCsvFiles}
+
+FR_Data_All_train_XYXist <- fread(file="../CSV_Files/EXP12_2D_XYXist/WellsC06toE08_EXP12_2D_Xist_FarRedProbeMeasurements.csv", check.names = T, showProgress = T)
+  
+R_Data_All_train_XYXist <- fread(file="../CSV_Files/EXP12_2D_XYXist/WellsC06toE08EXP12_2D_Y_RedProbeMeasurements.csv", check.names = T, showProgress = T)
+
+G_Data_All_train_XYXist <- fread(file="../CSV_Files/EXP12_2D_XYXist/WellsC06toE08_EXP12_2D_X_GreenProbeMeasurementsWithXistID.csv", check.names = T, showProgress = T)
+
+#AllColors_2D_XYXist <- rbind(FR_Data_All_train_XYXist, R_Data_All_train_XYXist, G_Data_All_train_XYXist)
+
+#Add New Plate Column#
+FR_Data_All_train_XYXist$EXPPlate<- "Exp12Xist"
+R_Data_All_train_XYXist$EXPPlate<- "Exp12Xist"
+G_Data_All_train_XYXist$EXPPlate<- "Exp12Xist"
+#AllColors_2D_13$EXPPlate<- "Exp12Xist"
+  
+```
+
+
+Operations to filter out cells that have more CTs than expected. Also generates a data table that contains only nuclei that have the exact number of chromosomes CTs as expected by karyotype in 2D.
+```{r filter}
+#Columns to retain
+keep1 <- c(5, 7, 14:15, 17:23, 27, 77, 90:95, 115:130, 125:151)
+keep2 <- c(5, 7, 14:15,17:21, 25, 75, 90:95, 115:128, 125:141)
+G_Data_All_train_XYXist <- G_Data_All_train_XYXist[, keep1, with=FALSE]
+R_Data_All_train_XYXist <- R_Data_All_train_XYXist[, keep2, with=FALSE]
+FR_Data_All_train_XYXist <- FR_Data_All_train_XYXist[, keep2, with=FALSE]
+
+#Generates a new data table that counts the number of CTs per nucleus 
+cell_G_12Xist <- G_Data_All_train_XYXist[,.(ct_number = .N),by = .(Well.Position, FieldNumber, Karyotype, NucleusID)]
+cell_R_12Xist <- R_Data_All_train_XYXist[,.(ct_number = .N),by = .(Well.Position, FieldNumber, Karyotype, NucleusID)]
+cell_FR_12Xist <- FR_Data_All_train_XYXist[,.(ct_number = .N),by = .(Well.Position, FieldNumber, Karyotype, NucleusID)]
+
+#Joins the 2 data tables together by CT, adding a column called ct_number
+setkey(G_Data_All_train_XYXist, Well.Position, FieldNumber, Karyotype, NucleusID)
+setkey(cell_G_12Xist, Well.Position, FieldNumber, Karyotype, NucleusID)
+G_Data_CTs_12Xist_Tnumber <- G_Data_All_train_XYXist[cell_G_12Xist, nomatch = 0]
+
+setkey(R_Data_All_train_XYXist, Well.Position, FieldNumber, Karyotype, NucleusID)
+setkey(cell_R_12Xist, Well.Position, FieldNumber, Karyotype, NucleusID)
+R_Data_CTs_12Xist_Tnumber <- R_Data_All_train_XYXist[cell_R_12Xist, nomatch = 0]
+
+setkey(FR_Data_All_train_XYXist, Well.Position, FieldNumber, Karyotype, NucleusID)
+setkey(cell_FR_12Xist, Well.Position, FieldNumber, Karyotype, NucleusID)
+FR_Data_CTs_12Xist_Tnumber <- FR_Data_All_train_XYXist[cell_FR_12Xist, nomatch = 0]
+
+#Generate a threshold table that determines the expected CT number per karyotype, then join this table with the previous table
+Karyotypes_X <- G_Data_CTs_12Xist_Tnumber[, unique(Karyotype)]
+thres_table_X = data.table(Karyotype = Karyotypes_X, threshold = c(2, 1, 2))
+setkey(G_Data_CTs_12Xist_Tnumber,Karyotype)
+setkey(thres_table_X,Karyotype)
+G_Data_CTs_12Xist_Tnumber2 <- G_Data_CTs_12Xist_Tnumber[thres_table_X, nomatch = 0]
+
+Karyotypes_Y <- R_Data_CTs_12Xist_Tnumber[, unique(Karyotype)]
+thres_table_Y = data.table(Karyotype = Karyotypes_Y, threshold = c(1, 1))
+setkey(R_Data_CTs_12Xist_Tnumber,Karyotype)
+setkey(thres_table_Y,Karyotype)
+R_Data_CTs_12Xist_Tnumber2 <- R_Data_CTs_12Xist_Tnumber[thres_table_Y, nomatch = 0]
+
+Karyotypes_Xist <- FR_Data_CTs_12Xist_Tnumber[, unique(Karyotype)]
+thres_table_Xist = data.table(Karyotype = Karyotypes_Xist, threshold = c(1, 1))
+setkey(FR_Data_CTs_12Xist_Tnumber,Karyotype)
+setkey(thres_table_Xist,Karyotype)
+FR_Data_CTs_12Xist_Tnumber2 <- FR_Data_CTs_12Xist_Tnumber[thres_table_Xist, nomatch = 0]
+
+#Generate 2 new data tables: one with the exact expected CT number and one with the expected number or smaller-
+G_Data_CTs_12Xist_filter_exact <- G_Data_CTs_12Xist_Tnumber2[ct_number == threshold,]
+R_Data_CTs_12Xist_filter_exact <- R_Data_CTs_12Xist_Tnumber2[ct_number == threshold,]
+FR_Data_CTs_12Xist_filter_exact <- FR_Data_CTs_12Xist_Tnumber2[ct_number == threshold,]
+#AllColors_2D_12Xist_exact <- rbind(G_Data_CTs_12Xist_filter_exact, R_Data_CTs_12Xist_filter_exact, FR_Data_CTs_12Xist_filter_exact)
+
+#G_Data_CTs_12Xist_filter_equalOrLess <- G_Data_CTs_12Xist_Tnumber2[ct_number <= threshold,]
+#R_Data_CTs_12Xist_filter_equalOrLess <- R_Data_CTs_12Xist_Tnumber2[ct_number <= threshold,]
+#FR_Data_CTs_12Xist_filter_equalOrLess <- FR_Data_CTs_12Xist_Tnumber2[ct_number <= threshold,]
+#AllColors_2D_12Xist_equalorless <- rbind(G_Data_CTs_12Xist_filter_equalOrLess, R_Data_CTs_12Xist_filter_equalOrLess, FR_Data_CTs_12Xist_filter_equalOrLess)
+
+```
+
+
+Box Plot of Normalized Number of Xist pixels in the X segmented mask and Scatter Plot of Normalized Number of Xist pixels in the X segmented mask vs. X CT Size
+```{r Xistscatterandboxplot, fig.width = 16}
+G_Data_CTs_12Xist_filter_exact_XX <- G_Data_CTs_12Xist_filter_exact [Karyotype =='XX', ]
+G_Data_CTs_12Xist_filter_exact_XX <- transform(G_Data_CTs_12Xist_filter_exact_XX, Norm.XistPixelsInXMask =(XistPixelsInXMask / Size..Geometric.Features.2D.)*100)
+
+#Scatter Plot of the Number of Xist pixels in the X segmented mask vs. X CT Size
+g <- ggplot(G_Data_CTs_12Xist_filter_exact_XX, aes(x=XistPixelsInXMask, y = Size..Geometric.Features.2D._CT , fill=InactiveFlag)) 
+g + geom_point(aes(color=InactiveFlag)) + 
+  #geom_smooth(method=lm, se=FALSE) +
+  facet_wrap(~ Karyotype, ncol=3) +
+  ggtitle(' ')+
+  ylab( 'X CT Area (Pixels)')+
+  xlab( 'Xist Pixels')+
+  theme(legend.position = "right", legend.text=element_text(size=18, face="bold"), plot.title = element_text(hjust = 0.5), axis.text = element_text(size = 18), axis.title = element_text(size = 18, face="bold"),text = element_text(size = 18), panel.background = element_rect(fill='white', colour='black'), axis.text.x= element_text(colour="grey20",size=18,face="bold"), axis.text.y = element_text(colour="grey20",size=18,face="bold"), panel.border = element_rect(linetype = "dashed", fill = NA))  
+
+#Box Plot of Normalized Number of X CT Size vs. X-Chromoome State
+g_ActvsInac <- ggplot(G_Data_CTs_12Xist_filter_exact_XX, aes(x=InactiveFlag, y = Size..Geometric.Features.2D._CT, fill=InactiveFlag)) 
+g_ActvsInac + geom_boxplot(outlier.size = 0, notch= TRUE)+ 
+  #geom_point(position=position_jitterdodge(), size = 0.15)+
+  #ggtitle('Normalized Number of Xist pixels in the X segmented mask')+
+  ylab( 'Normalized Xist Pixels')+
+  #ylim(c(0, .0385))+
+  theme(legend.position = "right", legend.text=element_text(size=18, face="bold"), plot.title = element_text(hjust = 0.5), axis.text = element_text(size = 18), axis.title = element_text(size = 18, face="bold"),text = element_text(size = 18), panel.background = element_rect(fill='white', colour='black'), axis.text.x= element_text(colour="grey20",size=18,face="bold"), axis.text.y = element_text(colour="grey20",size=18,face="bold"), panel.border = element_rect(linetype = "dashed", fill = NA))  
+
+```
+
+Active X vs. Inactive X Centroid
+```{r XCentroidXaXi, fig.width = 16}
+X.centroid.2D <- ggplot(G_Data_CTs_12Xist_filter_exact_XX, aes(x = Normalized.Centriod.DistanceMap, group = InactiveFlag, color = InactiveFlag))+ 
+                 geom_density(size=1, adjust = 1.2) +
+                 scale_color_brewer(palette = "Dark2") +
+                 ylab('Density') +
+                 theme_bw()+
+                 theme(text = element_text(size=20),
+               axis.text.x = element_text(angle=0, size=20))+
+         #axis.text.y = element_text(colour="white"),
+         #axis.title = element_text(colour="white"),
+               #legend.Position = "top")+
+              xlab('X Rank#1 centroid distance from border')
+print(X.centroid.2D)
+
+#Calculating the difference between the 2 CDFs using Kolmogorov-Smirnov (KS) test
+
+Xi <- G_Data_CTs_12Xist_filter_exact_XX[InactiveFlag == 'Inactive', Normalized.Centriod.DistanceMap]
+
+Xa <- G_Data_CTs_12Xist_filter_exact_XX[InactiveFlag == '', Normalized.Centriod.DistanceMap]
+
+KS.values <-ks.test(Xi,Xa)
+
+
+
+```
+
+
+Shell analyis of Acitive and Inactive X EXP 12
+```{r ShellAnalysis, fig.width = 16}
+
+G_Data_CTs_12Xist_filter_exact_XX$Pct.Shell1 <- (G_Data_CTs_12Xist_filter_exact_XX$NumPixelsdistantShell1 / G_Data_CTs_12Xist_filter_exact_XX$NumPixelsAlldistantShells ) 
+G_Data_CTs_12Xist_filter_exact_XX$Pct.Shell2 <- (G_Data_CTs_12Xist_filter_exact_XX$NumPixelsdistantShell2 / G_Data_CTs_12Xist_filter_exact_XX$NumPixelsAlldistantShells ) 
+G_Data_CTs_12Xist_filter_exact_XX$Pct.Shell3 <- (G_Data_CTs_12Xist_filter_exact_XX$NumPixelsdistantShell3 / G_Data_CTs_12Xist_filter_exact_XX$NumPixelsAlldistantShells ) 
+G_Data_CTs_12Xist_filter_exact_XX$Pct.Shell4 <- (G_Data_CTs_12Xist_filter_exact_XX$NumPixelsdistantShell4 / G_Data_CTs_12Xist_filter_exact_XX$NumPixelsAlldistantShells ) 
+G_Data_CTs_12Xist_filter_exact_XX$Pct.Shell5 <- (G_Data_CTs_12Xist_filter_exact_XX$NumPixelsdistantShell5 / G_Data_CTs_12Xist_filter_exact_XX$NumPixelsAlldistantShells ) 
+
+G_Data_melt_Xist <- melt(G_Data_CTs_12Xist_filter_exact_XX, measure.vars = c("Pct.Shell1", "Pct.Shell2", "Pct.Shell3", "Pct.Shell4", "Pct.Shell5" ),
+variable.name = "Shell.Number", na.rm = FALSE, value.name = "value", factorsAsStrings = TRUE)
+
+
+
+G_Pct_Per.Shell_Xist <- G_Data_melt_Xist[, .(ave_perc = mean(value))
+                      , by = .(Well.Position, Karyotype, Shell.Number, InactiveFlag)]
+
+
+G_Shells_plot_Xist <- ggplot(G_Pct_Per.Shell_Xist,aes(Shell.Number, ave_perc, colour = InactiveFlag )) +  
+  stat_summary(fun.data = mean_cl_normal, position = position_dodge(0.5), size = 2)+
+  scale_color_brewer(palette = "Dark2") +
+  scale_y_continuous(limits = c(0, 0.5))+
+  #ggtitle('XX')+
+                 ylab('Average Percent of X CT in Equidistant Shell') +
+                 theme_bw()+
+                theme(legend.position = "right", legend.text=element_text(size=25, face="bold"), plot.title = element_text(hjust = 0.5), axis.text = element_text(size = 25), axis.title = element_text(size = 25, face="bold"),text = element_text(size = 25), panel.background = element_rect(fill='white', colour='black'), axis.text.x= element_text(colour="grey20",size=20,face="bold"), axis.text.y = element_text(colour="grey20",size=20,face="bold"), panel.border = element_rect(linetype = "dashed", fill = NA)) 
+ 
+print(G_Shells_plot_Xist)
+
+```
+
+
+Calculate p-values comparing the negative controls with the samples using the Mann-Whitney test. No multiple testing correction is employed. Run only once
+```{r  Mann1, results='hide'}
+pValues <- function(a, b){
+            test.results <- wilcox.test(a,b)
+            test.results$p.value
+}
+```
+
+
+Create an additional table for p-values according to the Mann-Whitney tests (one sample vs each of the other ones) 
+```{r createPvalueTables, results='hide'}
+XX.XistIntensity.XivsXa <- G_Data_CTs_12Xist_filter_exact_XX[InactiveFlag == "Inactive", Norm.XistPixelsInXMask]
+
+pValues.XistIntensity.XivsXa <- G_Data_CTs_12Xist_filter_exact_XX[, 
+                     list(mannWhit.pValue = pValues(XX.XistIntensity.XivsXa, Norm.XistPixelsInXMask),
+                          median.XistIntensity.XivsXa = median(Norm.XistPixelsInXMask)),
+                     by = InactiveFlag]
+
+
+XX.CT.Area.XistIntensity.XivsXa <- G_Data_CTs_12Xist_filter_exact_XX[InactiveFlag == "Inactive", Size..Geometric.Features.2D._CT]
+
+pValues.CT.Area.XistIntensity.XivsXa <- G_Data_CTs_12Xist_filter_exact_XX[, 
+                     list(mannWhit.pValue = pValues(XX.CT.Area.XistIntensity.XivsXa, Size..Geometric.Features.2D._CT),
+                          median.CT.Area.XistIntensity.XivsXa = median(Size..Geometric.Features.2D._CT)),
+                     by = InactiveFlag]
+
+```
+
+Document the information about the analysis session
+```{r sessionInfo, include=TRUE, echo=TRUE, results='markup'}
+sessionInfo()
+```

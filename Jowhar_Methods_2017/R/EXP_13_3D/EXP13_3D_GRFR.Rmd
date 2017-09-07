@@ -1,0 +1,255 @@
+---
+title: "Data analysis for CTs ploting and statistical calculations"
+author: "Sigal Shachar"
+date: "December 27 2016"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+### Introduction
+
+This script analyzes data obtained by imaging primary human fibroblasts stained with chromosome paints for chr X (green channel), Y (FarRed channel)  and 18 (Red channel). Cells were grown in PE-cellCarrierUltra 384 plates and imaged using the YOKOGAWA CV7000 microscope with a 60X-water or 40X-air objective. Images were imported into KNIME and analyzed and the results were exported as tab separated txt files.
+The script reads the txt files and calculates several features in 2D and in 3D including: Number of CTs per nucleus, nucleus size, CT size, CT centroid/COM distance from border and biggest or smallest X CT ranked.
+Finally, it calculates p values and difference between medians using Wilcoxon test for the centroid distance from border diatributions.
+
+Load packages.
+```{r}
+library('plyr')
+library('dplyr')
+library('ggplot2')
+library('stringr')
+library('knitr')
+library('SpatialTools')
+library('reshape2')
+library('DT')
+library('data.table')
+library('Hmisc')
+```
+
+
+Read the CSV files into R
+```{r ReadCsvFiles}
+
+FR3D_Data <- fread(file="../CSV_Files/EXP13_3D_18XY/AllWells_EXP13_3D_Y_FarRedProbeMeasurements.csv", check.names = T, showProgress = T)
+
+R3D_Data <- fread(file="../CSV_Files/EXP13_3D_18XY/AllWells_EXP13_3D_18_RedProbeMeasurements", check.names = T, showProgress = T)
+
+G3D_Data <- fread(file="../CSV_Files/EXP13_3D_18XY/AllWells_EXP13_3D_X_GreenProbeMeasurements.csv", check.names = T, showProgress = T)
+
+#AllColors_3D <- rbind(G3D_Data, R3D_Data, FR3D_Data)
+
+#Add New Plate Column#
+FR3D_Data$EXPPlate<- "Exp13_3D"
+R3D_Data$EXPPlate<- "Exp13_3D"
+G3D_Data$EXPPlate<- "Exp13_3D"
+#AllColors_3D$EXPPlate<- "Exp13_3D"
+
+```
+
+
+Generate a new data frame in which CTs are grouped by well, field, nuc ID, probe color. In 2D and in 3D. Note that for 3D csv files, variable names were parsed from the string and may be different in later versions.
+```{r groupCTbyVariables}
+
+FR3D_group <- FR3D_Data[ ,.(CT_number = .N), by = .(Well.Position,
+                                                  Karyotype,
+                                                         FieldNumber,
+                                                         NucleusID,
+                                                  Volume..in.pixel.units...Geometric.Features.3D.,
+                                                         CT.Probe.Color)]
+
+  
+R3D_group <- R3D_Data[ ,.(CT_number = .N), by = .(Well.Position,
+                                                  Karyotype,
+                                                         FieldNumber,
+                                                         NucleusID,
+                                                  Volume..in.pixel.units...Geometric.Features.3D.,
+                                                         CT.Probe.Color)]
+G3D_group <- G3D_Data[ ,.(CT_number = .N), by = .(Well.Position,
+                                                  Karyotype,
+                                                         FieldNumber,
+                                                         NucleusID,
+                                                  Volume..in.pixel.units...Geometric.Features.3D.,
+                                                         CT.Probe.Color)]
+```
+
+
+
+### Graphical Exploratory Data Analysis and Calculations
+
+First of all, some quality control on the CT numbers per well in 2D.
+```{r CTnumberPerwell3D, echo=FALSE, fig.width = 12}
+
+
+g3D.ct.all.13 <- ggplot(G3D_group, aes(x = CT_number, y = ..density..)) 
+
+g3D.ct.all.13.p <- g3D.ct.all.13      + geom_histogram(fill = "#56B4E9", color = "#999999", binwidth = 1) + 
+                  stat_bin(binwidth = 1, geom = "text", aes(label=..density..), vjust = 1.5)+
+                 ylab('Density') + 
+                 coord_cartesian(xlim = c(0,6)) +
+                 scale_x_continuous(breaks = 0:5) +
+                 scale_y_continuous(limits = c(0, 1))+
+                 xlab('Number of Green CTs per Cell EXP 13 in 3D') + 
+                 facet_wrap(~ Well.Position + Karyotype, ncol = 3)  
+
+g3D.ct.all.13.p
+
+g3D.ct.all.13.pg <- ggplot_build(g3D.ct.all.13.p)
+g3D.ct.all.13.pg.df <- (g3D.ct.all.13.pg$data[[1]]) 
+
+
+r3D.ct.all.13 <- ggplot(R3D_group, aes(x = CT_number, y = ..density..)) 
+
+r3D.ct.all.13.p <- r3D.ct.all.13      + geom_histogram(fill = "#56B4E9", color = "#999999", binwidth = 1) + 
+                  stat_bin(binwidth = 1, geom = "text", aes(label=..density..), vjust = 1.5)+
+                 ylab('Density') + 
+                 coord_cartesian(xlim = c(0,5)) +
+                 scale_x_continuous(breaks = 0:5) +
+                 scale_y_continuous(limits = c(0, 1))+
+                 xlab('Number of Red CTs per Cell EXP 13 in 3D') + 
+                 facet_wrap(~ Well.Position + Karyotype, ncol = 3)  
+
+r3D.ct.all.13.p
+
+r3D.ct.all.13.pg <- ggplot_build(r3D.ct.all.13.p)
+r3D.ct.all.13.pg.df <- (r3D.ct.all.13.pg$data[[1]])
+
+
+fr3D.ct.all.13 <- ggplot(FR3D_group, aes(x = CT_number, y = ..density..)) 
+
+fr3D.ct.all.13.p <- fr3D.ct.all.13      + geom_histogram(fill = "#56B4E9", color = "#999999", binwidth = 1) + 
+                  stat_bin(binwidth = 1, geom = "text", aes(label=..density..), vjust = 1.5)+
+                 ylab('Density') + 
+                 coord_cartesian(xlim = c(0,5)) +
+                 scale_x_continuous(breaks = 0:5) +
+                 scale_y_continuous(limits = c(0, 1))+
+                 xlab('Number of FarRed CTs per Cell EXP 13 in 3D') + 
+                 facet_wrap(~ Well.Position + Karyotype, ncol = 3)  
+
+fr3D.ct.all.13.p
+
+fr3D.ct.all.13.pg <- ggplot_build(fr3D.ct.all.13.p)
+fr3D.ct.all.13.pg.df <- (fr3D.ct.all.13.pg$data[[1]])
+
+
+```
+
+
+
+Operations to filter out cells that have more CTs than expected. Also generates a data table that contains only nuclei that have the exact number of chromosomes CTs as expected by karyotype in 3D.
+```{r filter}
+
+#Generates a new data table that counts the number of CTs per nucleus 
+cell_G_13_3D <- G3D_Data[,.(ct_number = .N),by = .(Well.Position, FieldNumber, Karyotype, NucleusID)]
+cell_R_13_3D <- R3D_Data[,.(ct_number = .N),by = .(Well.Position, FieldNumber, Karyotype, NucleusID)]
+cell_FR_13_3D <- FR3D_Data[,.(ct_number = .N),by = .(Well.Position, FieldNumber, Karyotype, NucleusID)]
+
+#Joins the 2 data tables together by CT, adding a column called ct_number
+setkey(G3D_Data, Well.Position, FieldNumber, Karyotype, NucleusID)
+setkey(cell_G_13_3D, Well.Position, FieldNumber, Karyotype, NucleusID)
+G_Data_CTs_13_Tnumber_3D <- G3D_Data[cell_G_13_3D, nomatch = 0]
+
+setkey(R3D_Data, Well.Position, FieldNumber, Karyotype, NucleusID)
+setkey(cell_R_13_3D, Well.Position, FieldNumber, Karyotype, NucleusID)
+R_Data_CTs_13_Tnumber_3D <- R3D_Data[cell_R_13_3D, nomatch = 0]
+
+setkey(FR3D_Data, Well.Position, FieldNumber, Karyotype, NucleusID)
+setkey(cell_FR_13_3D, Well.Position, FieldNumber, Karyotype, NucleusID)
+FR_Data_CTs_13_Tnumber_3D <- FR3D_Data[cell_FR_13_3D, nomatch = 0]
+
+#Generate a threshold table that determines the expected CT number per karyotype, then join this table with the previous table
+Karyotypes_G3D <- G_Data_CTs_13_Tnumber_3D[, unique(Karyotype)]
+thres_table_G3D = data.table(Karyotype = Karyotypes_G3D, threshold = c(2, 1, 2))
+setkey(G_Data_CTs_13_Tnumber_3D,Karyotype)
+setkey(thres_table_G3D,Karyotype)
+G_Data_CTs_13_Tnumber2_3D <- G_Data_CTs_13_Tnumber_3D[thres_table_G3D, nomatch = 0]
+
+Karyotypes_R3D <- R_Data_CTs_13_Tnumber_3D[, unique(Karyotype)]
+thres_table_R3D = data.table(Karyotype = Karyotypes_R3D, threshold = c(2, 2, 2))
+setkey(R_Data_CTs_13_Tnumber_3D,Karyotype)
+setkey(thres_table_R3D,Karyotype)
+R_Data_CTs_13_Tnumber2_3D <- R_Data_CTs_13_Tnumber_3D[thres_table_R3D, nomatch = 0]
+
+Karyotypes_FR3D <- FR_Data_CTs_13_Tnumber_3D[, unique(Karyotype)]
+thres_table_FR3D = data.table(Karyotype = Karyotypes_FR3D, threshold = c(1, 1))
+setkey(FR_Data_CTs_13_Tnumber_3D,Karyotype)
+setkey(thres_table_FR3D,Karyotype)
+FR_Data_CTs_13_Tnumber2_3D <- FR_Data_CTs_13_Tnumber_3D[thres_table_FR3D, nomatch = 0]
+
+#Generate 2 new data tables: one with the exact expected CT number and one with the expected number or smaller
+G_Data_CTs_13_3D_filter_exact <- G_Data_CTs_13_Tnumber2_3D[ct_number == threshold,]
+R_Data_CTs_13_3D_filter_exact <- R_Data_CTs_13_Tnumber2_3D[ct_number == threshold,]
+FR_Data_CTs_13_3D_filter_exact <- FR_Data_CTs_13_Tnumber2_3D[ct_number == threshold,]
+AllColors_13_3D_exact <- rbind(G_Data_CTs_13_3D_filter_exact, R_Data_CTs_13_3D_filter_exact, FR_Data_CTs_13_3D_filter_exact)
+
+#G_Data_CTs_filter_13_3D_equalOrLess <- G_Data_CTs_13_Tnumber2_3D[ct_number <= threshold,]
+#R_Data_CTs_filter_13_3D_equalOrLess <- R_Data_CTs_13_Tnumber2_3D[ct_number <= threshold,]
+#FR_Data_CTs_filter_13_3D_equalOrLess <- FR_Data_CTs_13_Tnumber2_3D[ct_number <= threshold,]
+#AllColors_3D_13_equalorless <- rbind(FR_Data_All_train_13, R_Data_All_train_13, G_Data_All_train_13)
+
+R_Data_CTs_13_3D_filter_exact_XX_XY <- subset(R_Data_CTs_13_3D_filter_exact, R_Data_CTs_13_3D_filter_exact$Karyotype == c("XX" , "XY"))
+AllColors_13_3D_exact_XX_XY <- subset(AllColors_13_3D_exact, AllColors_13_3D_exact$Karyotype == c("XX" , "XY"))
+AllColors_13_3D_exact_XY <- subset(AllColors_13_3D_exact, AllColors_13_3D_exact$Karyotype == c("XY"))
+```
+
+
+
+Nuclear Area and Volume
+```{r NucVol, echo=FALSE, fig.width = 12}
+
+Nuc_vol3D_All <- ggplot(AllColors_13_3D_exact_XX_XY, aes(x = Karyotype, y = Volume..in.pixel.units...Geometric.Features.3D.))
+
+Nuc_vol3D_All        + geom_boxplot(aes(fill= Karyotype), size = 0 , notch = TRUE) + 
+                 scale_fill_brewer(palette = "PRGn")+
+                 #geom_jitter(width = 0.5, size = 0.1)+
+                 scale_y_continuous(limits = c(40000, 120000))+
+                 labs(title = "3D Nuclear Size Analysis")+
+                 ylab('Nucleus Volume (Pixels)') + 
+                 xlab('Karyotype')+
+                 theme(legend.position = "right", legend.text=element_text(size=25, face="bold"), plot.title = element_text(hjust = 0.5), axis.text = element_text(size = 25), axis.title = element_text(size = 25, face="bold"),text = element_text(size = 25), panel.background = element_rect(fill='white', colour='black'), axis.text.x= element_text(colour="grey20",size=20,face="bold"), axis.text.y = element_text(colour="grey20",size=20,face="bold"), panel.border = element_rect(linetype = "dashed", fill = NA)) 
+
+```
+
+
+2D and 3D Analysis of All Chromosome Colors and X-CT
+```{r CTVol, echo=FALSE, fig.width = 12}
+CT_vol3D_All <- ggplot(AllColors_13_3D_exact_XY, aes(x = CT.Probe.Color, y = Volume..in.pixel.units...Geometric.Features.3D...CT.)) 
+
+CT_vol3D_All        + geom_boxplot(aes(fill= factor (CT.Probe.Color)), size = 0 , notch = TRUE) + 
+                 scale_fill_brewer(palette = "PRGn")+
+                 #geom_jitter(width = 0.2, size = 0.05)+
+                 scale_y_continuous(limits = c(400, 5000))+
+                  labs(title = "3D Chromosome Territoty Size Analysis")+
+                 ylab('CT Volume (Pixels)') +  
+                 xlab('Karyotype')+
+                theme(legend.position = "right", legend.text=element_text(size=25, face="bold"), plot.title = element_text(hjust = 0.5), axis.text = element_text(size = 25), axis.title = element_text(size = 25, face="bold"),text = element_text(size = 25), panel.background = element_rect(fill='white', colour='black'), axis.text.x= element_text(colour="grey20",size=20,face="bold"), axis.text.y = element_text(colour="grey20",size=20,face="bold"), panel.border = element_rect(linetype = "dashed", fill = NA))  
+
+```
+
+
+Calculate p-values comparing the negative controls with the samples using the Mann-Whitney test. No multiple testing correction is employed. Run only once
+```{r  Mann1, results='hide'}
+pValues <- function(a, b){
+            test.results <- wilcox.test(a,b)
+            test.results$p.value
+}
+```
+
+
+Create an additional table for p-values according to the Mann-Whitney tests (one sample vs each of the other ones) 
+```{r createPvalueTables, results='hide'}
+XX.Nuc.Vol <- AllColors_13_3D_exact_XX_XY[Karyotype == "XX", Volume..in.pixel.units...Geometric.Features.3D.]
+
+pValues.nuc.volume <- AllColors_13_3D_exact_XX_XY[, 
+                     list(mannWhit.pValue = pValues(XX.Nuc.Vol, Volume..in.pixel.units...Geometric.Features.3D.),
+                          median.nuc.size = median(Volume..in.pixel.units...Geometric.Features.3D.)),
+                     by = Karyotype]
+
+
+
+
+```
+Document the information about the analysis session
+```{r sessionInfo, include=TRUE, echo=TRUE, results='markup'}
+sessionInfo()
+```
