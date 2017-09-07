@@ -18,7 +18,7 @@ To activate the `knime321` virtual environment do the following (Note: python/co
 source activate knime321
 
 Now set the KNIME Pereferences for `Path to Python Executable` to the `python` executable in the virtual environment knime321:
-e.g.: /home/<username>/.conda/envs/knime321/bin/python
+e.g.: `/home/<username>/.conda/envs/knime321/bin/python`
 
 It also expected to point ImageJ1 preferences in KNIME to a local installation of Fiji (stock plugins should be fine):
 
@@ -43,9 +43,7 @@ How to run the workflow:
 
 5) Now, hit the "Double Arrow" on the KNIME GUI to execute the workflow.
 
-6) The Workflow should save results (3 .csv files; 3 KNIME Tables .table; and 3 .svg files) in the following location based on the values you entered in the "Configure Workflow" Metanode.
-
-e.g.; <OUTPUT Directory>/<Experiment Name>/<Username>/<YYYYMMMDD_HHMMSS>/
+6) The Workflow should save results (3 .csv files; 3 KNIME Tables .table; and 3 .svg files) in the following location based on the values you entered in the "Configure Workflow" Metanode (e.g., `<OUTPUT Directory>/<Experiment Name>/<Username>/<YYYYMMMDD_HHMMSS>/`).
 
 
 
