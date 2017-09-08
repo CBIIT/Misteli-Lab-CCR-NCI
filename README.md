@@ -3,7 +3,7 @@ Collection of analysis scripts, workflows, (primary/secondary) data used in publ
 ## Updates:
 
 ### Sept 06, 2017
-1. R scripts with (secondary) data and KNIME (version 3.2.1) workflows for Jowhar _et. al._, Methods, 2017.
+1. R scripts with (secondary) data and KNIME (version 3.2.1) workflows for [Jowhar et. al., Methods, 2017](https://doi.org/10.1101/185942).  
 
 ## Description of folders:
 
