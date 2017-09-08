@@ -2,7 +2,7 @@ Collection of analysis scripts, workflows, (primary/secondary) data used in publ
 
 ## Updates:
 
-### Sept 06, 2017
+### Sept 07, 2017
 1. R scripts with (secondary) data and KNIME (version 3.2.1) workflows for _[Jowhar et. al., Methods, 2017](https://doi.org/10.1101/185942)_.  
 
 ## Description of folders:
@@ -20,4 +20,6 @@ Email: [mistelit@mail.nih.gov](mailto:mistelit@mail.nih.gov)
 NIH Distinguished Investigator 
 Head, Cell Biology of Genomes Group
 
-Center for Cancer Research, National Cancer Institute, NIH, Bethesda, MD 20892
+Center for Cancer Research  
+National Cancer Institute  
+National Institues of Health, Bethesda, MD 20892.  
