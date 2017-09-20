@@ -1,0 +1,164 @@
+---
+title: "Comparing Number of DNA FISH Spots Per Nucleus from RFLearner and UNet-2L"
+author: "Prabhakar R. Gudla"
+date: "Aug 13, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(data.table)
+library(ggplot2)
+library(plyr)
+library(dplyr)
+knitr::opts_chunk$set(echo = TRUE,fig.path = "images/",cache=TRUE)
+source('plate1vsplate2.R')
+```
+
+## Description
+
+Here we will compare the FISH copy number from two biological replicates using RFLeaner and Unet. We will restrict the analysis to wells containing all three probes (Green/Red/FarRed).
+
+```{r inputsetup}
+datadirs <- c('./ExperimentLevelData/rflearner_based/testp1',
+              './ExperimentLevelData/rflearner_based/testp2',
+              './ExperimentLevelData/cnn_based/testp1',
+              './ExperimentLevelData/cnn_based/testp2')
+
+platenames <- c('Test-P1', 'Test-P2',  'Test-P1', 'Test-P2')
+
+# Function for reading plate's CSV file with FISH copy number, for out wells without all three probes, and renaming n12-11-14 to 12-11-14 
+readplatecsvandfilter <- function(fname, pname){
+  myplate <- fread(fname)
+  myplate <- myplate[myplate$`Green Probe Detect` =='X' & myplate$`Red Probe Detect` =='Y' & myplate$`Far Red Probe Detect` =='Z',]
+  myplate$Replicate <- pname
+  myplate$`probe set`[myplate$`probe set` == "n12-11-14"] <- "12-11-14"
+  return (myplate)
+}
+
+# Plate TEST-P1-RF
+plateid <- 1
+plate.71.rf.G <- readplatecsvandfilter(paste0(datadirs[plateid], '/', 'GreenCT_Histogram_PerWell_all.csv'), platenames[plateid])
+plate.71.rf.R <- readplatecsvandfilter(paste0(datadirs[plateid], '/', 'RedCT_Histogram_PerWell_all.csv'), platenames[plateid])
+plate.71.rf.FR <- readplatecsvandfilter(paste0(datadirs[plateid], '/', 'FarRedCT_Histogram_PerWell_all.csv'), platenames[plateid])
+
+# Plate TEST-P2-RF
+plateid <- 2
+plate.72.rf.G <- readplatecsvandfilter(paste0(datadirs[plateid], '/', 'GreenCT_Histogram_PerWell_all.csv'), platenames[plateid])
+plate.72.rf.R <- readplatecsvandfilter(paste0(datadirs[plateid], '/', 'RedCT_Histogram_PerWell_all.csv'), platenames[plateid])
+plate.72.rf.FR <- readplatecsvandfilter(paste0(datadirs[plateid], '/', 'FarRedCT_Histogram_PerWell_all.csv'), platenames[plateid])
+
+# Plate TEST-P2-UNET
+plateid <- 3
+plate.71.unetfh.G <- readplatecsvandfilter(paste0(datadirs[plateid], '/', 'GreenCT_Histogram_PerWell.csv'), platenames[plateid])
+plate.71.unetfh.R <- readplatecsvandfilter(paste0(datadirs[plateid], '/', 'RedCT_Histogram_PerWell.csv'), platenames[plateid])
+plate.71.unetfh.FR <- readplatecsvandfilter(paste0(datadirs[plateid], '/', 'FarRedCT_Histogram_PerWell.csv'), platenames[plateid])
+
+# Plate TEST-P2-UNET
+plateid <- 4
+plate.72.unetfh.G <- readplatecsvandfilter(paste0(datadirs[plateid], '/', 'GreenCT_Histogram_PerWell.csv'), platenames[plateid])
+plate.72.unetfh.R <- readplatecsvandfilter(paste0(datadirs[plateid], '/', 'RedCT_Histogram_PerWell.csv'), platenames[plateid])
+plate.72.unetfh.FR <- readplatecsvandfilter(paste0(datadirs[plateid], '/', 'FarRedCT_Histogram_PerWell.csv'), platenames[plateid])
+
+```
+
+This is a function which plots the FISH copy number arcoss two plates (plate+method). First, the function change columns by removing spaces. Trims extra white spaces in Well.Position column. Sets any nucleus with FISH signals >= 6 as 6. The plots the proprotion in each probe-set (mean +/- s.d.). 
+
+```{r funcplate1vsplate2}
+
+```
+Let's mean+/-s.d. number of nuclei per probeset from EvalP1 and EvalP2.
+
+```{r nucplotp1andp2}
+plate1.dt <- plate.71.unetfh.R
+plate2.dt <- plate.72.unetfh.R
+
+names(plate1.dt) <- make.names(names(plate1.dt))
+names(plate2.dt) <- make.names(names(plate2.dt))
+  
+plate2.dt$`Well.Position` <- trimws(plate2.dt$`Well.Position`)
+plate1.dt$`Well.Position` <- trimws(plate1.dt$`Well.Position`)
+  
+plate1.dt$Number.of.Unique.Labels[plate1.dt$Number.of.Unique.Labels >6] <- 6
+plate2.dt$Number.of.Unique.Labels[plate2.dt$Number.of.Unique.Labels >6] <- 6
+  
+plate1.dt.Summary <- plate1.dt %>% group_by(Well.Position,probe.set) %>% 
+  dplyr::summarise(n = n()) %>% dplyr::mutate(total = sum(n))
+plate1.dt.Summary$Replicate <- 'Test-P1'
+  
+  
+plate1.dt.msd <- ddply(plate1.dt.Summary , c("probe.set"), dplyr::summarise,
+                         meanN = mean(total),
+                         sdN   = sd(total)
+)
+plate1.dt.msd$Replicate <- 'Test-P1'
+
+plate2.dt.Summary <- plate2.dt %>% group_by(Well.Position,probe.set) %>% 
+  dplyr::summarise(n = n()) %>% dplyr::mutate(total = sum(n))
+plate2.dt.Summary$Replicate <- 'Test-P2'
+  
+  
+plate2.dt.msd <- ddply(plate2.dt.Summary , c("probe.set"), dplyr::summarise,
+                         meanN = mean(total),
+                         sdN   = sd(total)
+)
+plate2.dt.msd$Replicate <- 'Test-P2'
+
+ict7172.nuclei <- rbind(plate2.dt.msd, plate1.dt.msd)
+nuc.gp2<- ggplot(ict7172.nuclei, aes(x=probe.set, y=meanN, color=Replicate)) 
+nuc.gp2 <- nuc.gp2 +
+    geom_point(size=4)+
+    geom_errorbar(aes(ymin=meanN-sdN, ymax=meanN+sdN), width=.2,position=position_dodge(0.05), size=1.0)+
+    ylab('Number of Nuclei') + coord_cartesian(ylim=c(0,650))+
+    xlab('Probe Set')+ 
+    theme_bw()+
+    theme(axis.text=element_text(size=12), axis.title.y = element_text(size = rel(1.5)) , axis.title.x = element_text(size=rel(1.5)), axis.text.x = element_text(angle = 45, hjust = 1), aspect.ratio=0.5,legend.position="bottom", text=element_text(family="sans"))
+  
+
+print(nuc.gp2)
+```
+
+Let's plot RFLearner's of Plate TEST-P1-Green and Plate TEST-P2-Green
+
+```{r ict17172green}
+ict7172.rf.green.gp2 <- gp2plate1vsplate2(plate.71.rf.G, plate.72.rf.G, platenames[1], platenames[2], 'Alexa488',4)
+print(ict7172.rf.green.gp2)
+```
+
+Let's plot RFLearner's of Plate TEST-P1-Red and Plate TEST-P2-Red
+
+```{r ict17172red}
+ict7172.rf.red.gp2 <- gp2plate1vsplate2(plate.71.rf.R, plate.72.rf.R, platenames[1], platenames[2], 'ATTO565',4)
+print(ict7172.rf.red.gp2)
+```
+
+Let's plot RFLearner's of Plate TEST-P1-FarRed and Plate TEST-P2-Far-red
+
+```{r ict17172farred}
+ict7172.rf.farred.gp2 <- gp2plate1vsplate2(plate.71.rf.FR, plate.72.rf.FR, platenames[1], platenames[2], 'Cy5',4)
+print(ict7172.rf.farred.gp2)
+```
+
+Let's plot Unet-FH of Plate TEST-P1-Green and Plate TEST-P2-Green
+
+```{r ict17172greenunetfh}
+ict7172.unetfh.green.gp2 <- gp2plate1vsplate2(plate.71.unetfh.G, plate.72.unetfh.G, platenames[3], platenames[4], 'Alexa488',4)
+print(ict7172.unetfh.green.gp2)  
+```
+Let's plot Unet-FH of Plate TEST-P1-Red and Plate TEST-P2-Red
+
+```{r ict17172redunetfh}
+ict7172.unetfh.red.gp2 <- gp2plate1vsplate2(plate.71.unetfh.R, plate.72.unetfh.R, platenames[3], platenames[4], 'ATTO565',4)
+print(ict7172.unetfh.red.gp2)  
+```
+
+Let's plot Unet-FH of Plate TEST-P1-FarRed and Plate TEST-P2-FarRed
+
+```{r ict17172farredunetfh}
+ict7172.unetfh.farred.gp2 <- gp2plate1vsplate2(plate.71.unetfh.FR, plate.72.unetfh.FR, platenames[3], platenames[4], 'Cy5',4)
+print(ict7172.unetfh.farred.gp2)  
+```
+
+Document the information about the analysis session
+```{r sessionInfo, include=TRUE, echo=TRUE, results='markup'}
+sessionInfo()
+```
