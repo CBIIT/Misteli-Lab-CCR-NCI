@@ -8,7 +8,7 @@ C) Before you execute this workflow please set the path to python executable wit
 Python2.7.12 Setup for KNIME-KNIP (Version 3.2.1):
 
 The python environment detailes we are using is provided in the following txt file (pip freeze):
-p27_packages_in_singularity.txt
+[p27_packages_in_singularity.txt](https://github.com/CBIIT/Misteli-Lab-CCR-NCI/blob/master/Jowhar_SCA_2018/KNIME/KNIME_Config_Files/p27_packages_in_singularity.txt)
 
 You can install the requirements using pip:
 pip install --no-cache-dir -r p27_packages_in_singularity.txt
@@ -23,11 +23,11 @@ KNIME--> Image Processing Plugin --> ImageJ1 Preferences --> ImageJ1 Plugin Dire
 
 
 Notes: 
-1) To run the workflows you might need to adapt the path to the deep learning model weights (.h5) and architecture files (.json).
-   These are in "DeeplearningModels" folder.
-2) The Random Forests Model for filtering out mis-segmented nuclei is here:
-   RandomForestModels\NucleiRFLearner\DAPI_2DNuclei_RFLearner.zip    
+1) To run the workflows you might need to adapt the path to the deep learning model weights (.h5) and architecture files (.json). These are in [DeeplearningModels](https://github.com/CBIIT/Misteli-Lab-CCR-NCI/blob/master/Jowhar_SCA_2018/KNIME/DeeplearningModels) sub-folder.
 
-3) KNIME Preferences we used for our set is here : knime321_preferences.epf
-4) KNIME Configuration captured from the KNIME -> Help--> Installation Details is also in this folder: knime321_configuration.txt
+2) The Random Forests Model (.zip) for filtering out mis-segmented nuclei is [here](https://github.com/CBIIT/Misteli-Lab-CCR-NCI/blob/master/Jowhar_SCA_2018/KNIME/RandomForestModels/NucleiRFLearner/DAPI_2DNuclei_RFLearner.zip).
+
+3) KNIME Preferences we used for our set is here [knime321_preferences.epf](https://github.com/CBIIT/Misteli-Lab-CCR-NCI/blob/master/Jowhar_SCA_2018/KNIME/KNIME_Config_Files/knime321_preferences.epf)
+
+4) KNIME Configuration captured from the KNIME -> Help--> Installation Details is also in this folder. See [knime321_configuration.txt](https://github.com/CBIIT/Misteli-Lab-CCR-NCI/blob/master/Jowhar_SCA_2018/KNIME/KNIME_Config_Files/knime321_configuration.txt)
 
