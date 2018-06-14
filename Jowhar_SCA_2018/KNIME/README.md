@@ -1,7 +1,8 @@
-A) The attached production workflow(s) were mostly run on Linux (64-bit) compute node (Biowulf, HPC @ NIH).
-   Compute node specs: 56-Cores/Threads (28-CPUs), 190GB RAM, 500GB SSD for KNIME-TEMP, and 4 Nvidia Kepler 80 GPUs (12 GB Graphics RAM each).
+A) The attached production workflow(s) were mostly run on Linux (64-bit) compute node (Biowulf, HPC @ NIH). Compute node specs used for analyzing the dataset(s):
 
-B) The workflow(s) are TESTED exclusively on KNIME 3.2.1. The workflow will MOST likely fail with KNIME 3.3.X release because of changes to the "Feature Calculator (Beta)" node in the KNIME-KNIP 3.3.x release. 
+56-Cores/Threads (28-CPUs), 190GB RAM, 500GB SSD for KNIME-TMP, and 4 Nvidia Kepler 80 GPUs (12 GB Graphics RAM each).
+
+B) The workflow(s) are TESTED exclusively on KNIME 3.2.1. Some workflow(s) will MOST likely fail with KNIME 3.3.X release because of changes to the "Feature Calculator (Beta)" node in the KNIME-KNIP 3.3.x release. 
 
 C) Before you execute this workflow please set the path to python executable with appropriate packages:
 
