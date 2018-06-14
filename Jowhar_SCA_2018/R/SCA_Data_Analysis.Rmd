@@ -1,0 +1,953 @@
+---
+title: "Data analysis for CTs ploting"
+author: "Ziad Jowhar and Sigal Shachar"
+date: "June 04 2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+### Introduction
+
+This script analyzes data obtained by imaging primary human fibroblasts stained with chromosome paints for chr X (green channel), Y (Red channel), 18 (Red channel), and Xist (Far Red Channel). Cells were grown in PE-cellCarrierUltra 384 plates and imaged using the YOKOGAWA CV7000 microscope with a 40X-air objective. Images were imported into KNIME and analyzed and the results were exported as tab separated csv files.
+The script reads the csv files and calculates several features including: Number of CTs per nucleus, nucleus size, CT size, CT Circulartiy, Xist intensity, & CT equidistant position.
+
+Load packages.
+```{r}
+library('plyr')
+library('dplyr')
+library('ggplot2')
+library('stringr')
+library('knitr')
+library('SpatialTools')
+library('reshape2')
+library('DT')
+library('data.table')
+library('Hmisc')
+```
+
+#Chunk 1 
+EXP27p1-EXP27p2-EXP28p1-EXP28p2-EXP30p3-EXP30p4 - Chromosome X and Y data
+```{r X - Y ReadCsvFiles}
+#EXP27p1
+R_Data_27p1_Y <- fread(file="./XistXY_CTSeg_Tables/27p1/180503_EXP27p1_XistXY_CTSeg/gudlap/20180507_140523/AllWells_RedProbeMeasurements.csv", check.names = T, showProgress = T)
+
+G_Data_27p1_X <- fread(file="./XistXY_CTSeg_Tables/27p1/180503_EXP27p1_XistXY_CTSeg/gudlap/20180507_140523/AllWells_GreenProbeMeasurementsWithXistID_filteredXandXistForExpectedCount.csv", check.names = T, showProgress = T)
+G_Data_27p1_X$InactiveFlag[G_Data_27p1_X$InactiveFlag==''] <- "Active" 
+
+#Add New Plate Column#
+R_Data_27p1_Y$EXPPlate<- "Exp27p1"
+G_Data_27p1_X$EXPPlate<- "Exp27p1"
+
+###########
+
+#EXP27p2
+R_Data_27p2_Y <- fread(file="./XistXY_CTSeg_Tables/27p2/180503_EXP27p2_XistXY_CTSeg/gudlap/20180507_153512/AllWells_RedProbeMeasurements.csv", check.names = T, showProgress = T)
+
+G_Data_27p2_X <- fread(file="./XistXY_CTSeg_Tables/27p2/180503_EXP27p2_XistXY_CTSeg/gudlap/20180507_153512/AllWells_GreenProbeMeasurementsWithXistID_filteredXandXistForExpectedCount.csv", check.names = T, showProgress = T)
+G_Data_27p2_X$InactiveFlag[G_Data_27p2_X$InactiveFlag==''] <- "Active" 
+
+#Add New Plate Column#
+R_Data_27p2_Y$EXPPlate<- "Exp27p2"
+G_Data_27p2_X$EXPPlate<- "Exp27p2"
+
+###########
+
+#EXP28p1
+R_Data_28p1_Y <- fread(file="./XistXY_CTSeg_Tables/28p1/180503_EXP28p1_XistXY_CTSeg/gudlap/20180507_173900/AllWells_RedProbeMeasurements.csv", check.names = T, showProgress = T)
+
+G_Data_28p1_X <- fread(file="./XistXY_CTSeg_Tables/28p1/180503_EXP28p1_XistXY_CTSeg/gudlap/20180507_173900/AllWells_GreenProbeMeasurementsWithXistID_filteredXandXistForExpectedCount.csv", check.names = T, showProgress = T)
+G_Data_28p1_X$InactiveFlag[G_Data_28p1_X$InactiveFlag==''] <- "Active" 
+
+#Add New Plate Column#
+R_Data_28p1_Y$EXPPlate<- "Exp28p1"
+G_Data_28p1_X$EXPPlate<- "Exp28p1"
+
+###########
+
+#EXP28p2
+R_Data_28p2_Y <- fread(file="./XistXY_CTSeg_Tables/28p2/180503_EXP28p2_XistXY_CTSeg/gudlap/20180507_210107/AllWells_RedProbeMeasurements.csv", check.names = T, showProgress = T)
+
+G_Data_28p2_X <- fread(file="./XistXY_CTSeg_Tables/28p2/180503_EXP28p2_XistXY_CTSeg/gudlap/20180507_210107/AllWells_GreenProbeMeasurementsWithXistID_filteredXandXistForExpectedCount.csv", check.names = T, showProgress = T)
+G_Data_28p2_X$InactiveFlag[G_Data_28p2_X$InactiveFlag==''] <- "Active" 
+
+#Add New Plate Column#
+R_Data_28p2_Y$EXPPlate<- "Exp28p2"
+G_Data_28p2_X$EXPPlate<- "Exp28p2"
+
+###########
+
+#EXP30p3
+R_Data_30p3_Y <- fread(file="./XistXY_CTSeg_Tables/30p3/180503_EXP30p3_XistXY_CTSeg/gudlap/20180507_153512/AllWells_RedProbeMeasurements.csv", check.names = T, showProgress = T)
+
+G_Data_30p3_X <- fread(file="./XistXY_CTSeg_Tables/30p3/180503_EXP30p3_XistXY_CTSeg/gudlap/20180507_153512/AllWells_GreenProbeMeasurementsWithXistID_filteredXandXistForExpectedCount.csv", check.names = T, showProgress = T)
+G_Data_30p3_X$InactiveFlag[G_Data_30p3_X$InactiveFlag==''] <- "Active" 
+
+#Add New Plate Column#
+R_Data_30p3_Y$EXPPlate<- "Exp30p3"
+G_Data_30p3_X$EXPPlate<- "Exp30p3"
+
+###########
+
+#EXP30p4
+R_Data_30p4_Y <- fread(file="./XistXY_CTSeg_Tables/30p4/180503_EXP30p4_XistXY_CTSeg/gudlap/20180507_173901/AllWells_RedProbeMeasurements.csv", check.names = T, showProgress = T)
+
+G_Data_30p4_X <- fread(file="./XistXY_CTSeg_Tables/30p4/180503_EXP30p4_XistXY_CTSeg/gudlap/20180507_173901/AllWells_GreenProbeMeasurementsWithXistID_filteredXandXistForExpectedCount.csv", check.names = T, showProgress = T)
+G_Data_30p4_X$InactiveFlag[G_Data_30p4_X$InactiveFlag==''] <- "Active" 
+
+#Add New Plate Column#
+R_Data_30p4_Y$EXPPlate<- "Exp30p4"
+G_Data_30p4_X$EXPPlate<- "Exp30p4"
+
+```
+
+#Chunk 2 
+Merge 27-30 (6 plates) - Chromosome X and Y data
+```{r X - Y MergeCsvFiles}
+
+#Merge EXP 27-30 XYXist
+R_Y_AllEXP<- rbind(R_Data_27p1_Y, R_Data_27p2_Y, R_Data_28p1_Y, R_Data_28p2_Y, R_Data_30p3_Y, R_Data_30p4_Y)
+G_X_AllEXP<- rbind(G_Data_27p1_X, G_Data_27p2_X, G_Data_28p1_X, G_Data_28p2_X, G_Data_30p3_X, G_Data_30p4_X)
+
+
+```
+
+#Chunk 3 
+11p1, 12p2, 14p1, 17p1, 20p2, 22p1, 27p1, 27p2, 28p1, 30p1 (10 plates) - Chromosome 18 data
+```{r CT 18 ReadCsvFiles}
+#EXP11p1
+R_Data_11p1_18 <- fread(file="./XY18_CTSeg_Tables/11p1/180503_EXP11p1_18XY_CTSeg/gudlap/20180503_175052/AllWells_RedProbeMeasurements.csv", check.names = T, showProgress = T)
+
+#Add New Plate Column#
+R_Data_11p1_18$EXPPlate<- "11p1"
+
+###########
+
+#Exp 12p2
+R_Data_12p2_18 <- fread(file="./XY18_CTSeg_Tables/12p2/180503_EXP12p2_18XY_CTSeg/gudlap/20180508_134010/AllWells_RedProbeMeasurements.csv", check.names = T, showProgress = T)
+R_Data_12p2_18 <- subset(R_Data_12p2_18, Well.Position != " C07" & Well.Position != " C08" & Well.Position != " C09" & Well.Position != " D07" & Well.Position != " D08" & Well.Position != " D09" )
+
+#Add New Plate Column#
+R_Data_12p2_18$EXPPlate<- "12p2"
+
+###########
+
+#Exp 14p1
+R_Data_14p1_18 <- fread(file="./XY18_CTSeg_Tables/14p1_40X/180503_EXP14p1_18XY_CTSeg/gudlap/20180504_172619/AllWells_RedProbeMeasurements.csv", check.names = T, showProgress = T)
+R_Data_14p1_18$Karyotype[R_Data_14p1_18$Karyotype=='X'] <- "XO"
+R_Data_14p1_18 <- subset(R_Data_14p1_18, Karyotype != "XY")
+
+#Add New Plate Column#
+R_Data_14p1_18$EXPPlate<- "14p1"
+
+###########
+
+#Exp 17p1
+R_Data_17p1_18 <- fread(file="./XY18_CTSeg_Tables/17p1/180503_EXP17p1_18XY_CTSeg/gudlap/20180504_165334/AllWells_RedProbeMeasurements.csv", check.names = T, showProgress = T)
+R_Data_17p1_18$Karyotype[R_Data_17p1_18$Karyotype=='X'] <- "XO" 
+R_Data_17p1_18 <- subset(R_Data_17p1_18, Karyotype != "XY")
+
+#Add New Plate Column#
+R_Data_17p1_18$EXPPlate<- "17p1"
+
+###########
+
+#Exp 20p2
+R_Data_20p2_18 <- fread(file="./XY18_CTSeg_Tables/20p2/180503_EXP20p2_18XY_CTSeg/gudlap/20180504_164359/AllWells_RedProbeMeasurements.csv", check.names = T, showProgress = T)
+R_Data_20p2_18 <- subset(R_Data_20p2_18, Well.Position != " E06" & Well.Position != " E07" & Well.Position != " E08" & Well.Position != " F06" & Well.Position != " F07" & Well.Position != " F08" )
+
+#Add New Plate Column#
+R_Data_20p2_18$EXPPlate<- "20p2"
+
+###########
+
+#Exp 22p1
+R_Data_22p1_18 <- fread(file="./XY18_CTSeg_Tables/22p1/180503_EXP22p1_18XY_CTSeg/gudlap/20180503_211017/AllWells_RedProbeMeasurements.csv", check.names = T, showProgress = T)
+R_Data_22p1_18 <- subset(R_Data_22p1_18, Well.Position != " E06" & Well.Position != " E07" & Well.Position != " E08" & Well.Position != " F06" & Well.Position != " F07" & Well.Position != " F08" & Well.Position != " G06" & Well.Position != " G07" & Well.Position != " G08" )
+
+#Add New Plate Column#
+R_Data_22p1_18$EXPPlate<- "22p1"
+
+###########
+
+#EXP27p1
+R_Data_27p1_18 <- fread(file="./XY18_CTSeg_Tables/27p1_18XY/180503_EXP27p1_18XY_CTSeg/gudlap/20180503_221059/AllWells_RedProbeMeasurements.csv", check.names = T, showProgress = T)
+
+#Add New Plate Column#
+R_Data_27p1_18$EXPPlate<- "27p1"
+
+###########
+
+#EXP27p2
+R_Data_27p2_18 <- fread(file="./XY18_CTSeg_Tables/27p2_18XY/180522_EXP27p2_18XY_CTSeg/jowharzm/20180522_144855/AllWells_RedProbeMeasurements.csv", check.names = T, showProgress = T)
+
+#Add New Plate Column#
+R_Data_27p2_18$EXPPlate<- "27p2"
+
+###########
+
+#EXP28p1
+R_Data_28p1_18 <- fread(file="./XY18_CTSeg_Tables/28p1_18XY/180503_EXP28p1_18XY_CTSeg/gudlap/20180504_074216/AllWells_RedProbeMeasurements.csv", check.names = T, showProgress = T)
+
+#Add New Plate Column#
+R_Data_28p1_18$EXPPlate<- "28p1"
+
+###########
+
+#EXP30p1
+R_Data_30p1_18 <- fread(file="./XY18_CTSeg_Tables/30p1_18XY/180503_EXP30p1_18XY_CTSeg/gudlap/20180504_112257/AllWells_RedProbeMeasurements.csv", check.names = T, showProgress = T)
+
+#Add New Plate Column#
+R_Data_30p1_18$EXPPlate<- "30p1"
+
+```
+
+#Chunk 4
+Merge 11-30 (10 plates) - Chromosome 18 Data
+```{r CT 18 MergeCsvFiles}
+#Merge EXP 27-30 XYXist
+R_18_AllEXP<- rbind(R_Data_11p1_18, R_Data_12p2_18, R_Data_14p1_18, R_Data_17p1_18, R_Data_20p2_18, R_Data_22p1_18, R_Data_27p1_18,  R_Data_27p2_18, R_Data_28p1_18, R_Data_30p1_18)
+
+```
+
+#Chunk 5
+Operations to filter out cells that have more CTs than expected. Also generates a data table that contains only nuclei that have the exact number of chromosomes CTs as expected by karyotype in 2D.
+```{r filter}
+#Columns to retain
+keep <- c(5, 7, 14:20, 23, 27, 77, 78, 88, 93:94, 115:124, 125:130, 139, 143:154)
+G_X_AllEXP <- G_X_AllEXP[, keep, with=FALSE]
+
+keep2 <- c(5, 7, 14:21, 25, 27, 75, 76, 86, 92, 123:141)
+R_18_AllEXP <- R_18_AllEXP[, keep2, with=FALSE]
+R_Y_AllEXP <- R_Y_AllEXP[, keep2, with=FALSE]
+
+#Generates a new data table that counts the number of CTs per nucleus 
+cell_R_18 <- R_18_AllEXP[,.(ct_number = .N),by = .(Well.Position, FieldNumber, Karyotype, NucleusID, EXPPlate)]
+cell_R_Y <- R_Y_AllEXP[,.(ct_number = .N),by = .(Well.Position, FieldNumber, Karyotype, NucleusID, EXPPlate)]
+
+#Joins the 2 data tables together by CT, adding a column called ct_number
+setkey(R_18_AllEXP, Well.Position, FieldNumber, Karyotype, NucleusID, EXPPlate)
+setkey(cell_R_18, Well.Position, FieldNumber, Karyotype, NucleusID, EXPPlate)
+R_18_AllEXP_Tnumber <- R_18_AllEXP[cell_R_18, nomatch = 0]
+
+setkey(R_Y_AllEXP, Well.Position, FieldNumber, Karyotype, NucleusID, EXPPlate)
+setkey(cell_R_Y, Well.Position, FieldNumber, Karyotype, NucleusID, EXPPlate)
+R_Y_AllEXP_Tnumber <- R_Y_AllEXP[cell_R_Y, nomatch = 0]
+
+#Generate a threshold table that determines the expected CT number per karyotype, then join this table with the previous table
+Karyotypes_18 <- R_18_AllEXP_Tnumber[, unique(Karyotype)]
+thres_table_18 = data.table(Karyotype = Karyotypes_18, threshold = c(2, 2, 2, 2, 2, 2, 2, 2, 2))
+setkey(R_18_AllEXP_Tnumber,Karyotype)
+setkey(thres_table_18,Karyotype)
+R_18_AllEXP_Tnumber2 <- R_18_AllEXP_Tnumber[thres_table_18, nomatch = 0]
+
+Karyotypes_Y <- R_Y_AllEXP_Tnumber[, unique(Karyotype)]
+thres_table_Y = data.table(Karyotype = Karyotypes_Y, threshold = c(1, 1, 2, 1, 2))
+setkey(R_Y_AllEXP_Tnumber,Karyotype)
+setkey(thres_table_Y,Karyotype)
+R_Y_AllEXP_Tnumber2 <- R_Y_AllEXP_Tnumber[thres_table_Y, nomatch = 0]
+
+#Generate 2 new data tables: one with the exact expected CT number and one with the expected number or smaller-
+R_18_AllEXP_filter_exact <- R_18_AllEXP_Tnumber2[ct_number == threshold,]
+
+R_Y_AllEXP_filter_exact <- R_Y_AllEXP_Tnumber2[ct_number == threshold,]
+
+
+```
+
+#Chunk 6
+Labeling of the patient number for all patients and merging. Spliting XCT data into Xa and Xi groups 
+```{r PatientIDs}
+#PATIENT 1
+G_Data_X_PATIENT1 <- G_X_AllEXP [Patient.ID == "FA" , ]
+
+R_Data_18_PATIENT1 <- R_18_AllEXP_filter_exact [Patient.ID == "FA" , ]
+
+R_Data_Y_PATIENT1 <- R_Y_AllEXP_filter_exact [Patient.ID == "FA" , ]
+
+G_Data_X_PATIENT1$PatientNumber<- "1"
+R_Data_18_PATIENT1$PatientNumber<- "1"
+R_Data_Y_PATIENT1$PatientNumber<- "1"
+
+#PATIENT 2
+G_Data_X_PATIENT2 <- G_X_AllEXP [Patient.ID == "FB" , ]
+
+R_Data_18_PATIENT2 <- R_18_AllEXP_filter_exact [Patient.ID == "FB" , ]
+
+R_Data_Y_PATIENT2 <- R_Y_AllEXP_filter_exact [Patient.ID == "FB" , ] 
+
+G_Data_X_PATIENT2$PatientNumber<- "2"
+R_Data_18_PATIENT2$PatientNumber<- "2"
+R_Data_Y_PATIENT2$PatientNumber<- "2"
+
+#PATIENT 3
+G_Data_X_PATIENT3 <- G_X_AllEXP [Patient.ID == "FC" , ]
+
+R_Data_18_PATIENT3 <- R_18_AllEXP_filter_exact [Patient.ID == "FC" , ]
+
+R_Data_Y_PATIENT3 <- R_Y_AllEXP_filter_exact [Patient.ID == "FC" , ]
+
+G_Data_X_PATIENT3$PatientNumber<- "3"
+R_Data_18_PATIENT3$PatientNumber<- "3"
+R_Data_Y_PATIENT3$PatientNumber<- "3"
+
+
+####All Data with patient batch
+AllR_18_Data <- rbind(R_Data_18_PATIENT1, R_Data_18_PATIENT2, R_Data_18_PATIENT3)
+AllG_X_Data <- rbind(G_Data_X_PATIENT1, G_Data_X_PATIENT2, G_Data_X_PATIENT3)
+AllR_Y_Data <- rbind(R_Data_Y_PATIENT1, R_Data_Y_PATIENT2, R_Data_Y_PATIENT3)
+
+```
+
+#Chunk 7
+Nuclear Area 
+```{r Nuc Area, echo=FALSE, fig.width = 12}
+Nuc.Area <- unique(AllG_X_Data[, list(Karyotype, 
+                                      EXPPlate,
+                                      PatientNumber,
+                                      median.nuc.area = median(Size..Geometric.Features.2D., na.rm = TRUE), 
+                                      mean.nuc.area = mean(Size..Geometric.Features.2D., na.rm = TRUE),
+                                      StD = sd(Size..Geometric.Features.2D., na.rm = TRUE)),
+                               by = interaction(EXPPlate, Karyotype)])
+
+#write.csv(Nuc.Area, "./Nuclear Area.csv")
+
+Nuc_Area <- ggplot(Nuc.Area, aes(x = Karyotype, y = mean.nuc.area))
+Nuc_Area + geom_boxplot(aes(fill= factor (Karyotype)), size = 0, width = 0.9) +
+  scale_fill_brewer(palette = "PRGn")+ 
+  geom_jitter(size = 2, 
+              width = 0.25) +
+  #scale_color_brewer(palette="Dark2") +
+  scale_x_discrete(limits=c("XO", "XY", "XYY", "XX", "XXY", "XXYY", "XXX", "XXXX","XXXXY"))+
+  scale_y_continuous(limits = c(4000, 10000))+
+  labs(title = "Nuclear Size")+
+  ylab('Nucleus Area (Pixels)') +
+  theme_bw()+
+  theme(legend.position = "right", 
+        legend.text=element_text(size=25, face="bold"),
+        plot.title = element_text(hjust = 0.5), 
+        axis.title = element_text(size = 28, face="bold"),
+        text = element_text(size = 25), 
+        panel.background = element_rect(fill='white', colour='black'),
+        axis.text.x= element_text(colour="grey20", size=23,face="bold", angle = 60, hjust = 1),
+        axis.text.y = element_text(colour="grey20",size=23,face="bold"),
+        panel.border = element_rect(linetype = "dashed", fill = NA)) 
+
+
+
+```
+
+#Chunk 8
+18, X, and Y CT Area 
+```{r 18 - X - Y CT Area, echo=FALSE, fig.width = 12}
+#18 CT Area
+R_18CT_Area <- unique(AllR_18_Data[, list(PatientNumber,
+                                          EXPPlate,
+                                          Karyotype,
+                                          median.CT.area = median(Size..Geometric.Features.2D._CT, na.rm = TRUE), 
+                                          mean.CT.area = mean(Size..Geometric.Features.2D._CT, na.rm = TRUE),
+                                          StD = sd(Size..Geometric.Features.2D._CT, na.rm = TRUE)),
+                            by = interaction(EXPPlate, Karyotype)])
+
+#write.csv(R_18CT_Area, "./18CT Area.csv")
+
+R_18CT_Area <- ggplot(R_18CT_Area, aes(x = Karyotype, y = mean.CT.area))
+R_18CT_Area + geom_boxplot(aes(fill= factor (Karyotype)), size = 0) + 
+                 scale_fill_brewer(palette = "PRGn")+ 
+  geom_jitter( size = 2, width = 0.3)+
+  #scale_color_brewer(palette="PRGn") +
+  scale_x_discrete(limits=c("XO", "XY", "XYY", "XX", "XXY", "XXYY", "XXX", "XXXX","XXXXY"))+
+  scale_y_continuous(limits = c(125, 300))+
+  labs(title = "Chrmosome 18 Size")+
+  ylab('CT Area (Pixels)') +
+  theme_bw()+
+  theme(legend.position = "right", 
+        legend.text=element_text(size=25, face="bold"),
+        plot.title = element_text(hjust = 0.5), 
+        axis.title = element_text(size = 28, face="bold"),
+        text = element_text(size = 25), 
+        panel.background = element_rect(fill='white', colour='black'),
+        axis.text.x= element_text(colour="grey20", size=25,face="bold", angle = 60, hjust = 1),
+        axis.text.y = element_text(colour="grey20",size=25,face="bold"),
+        panel.border = element_rect(linetype = "dashed", fill = NA)) 
+
+#X CT Area
+X_CT_Area <- unique(AllG_X_Data[, list(PatientNumber,
+                                       Karyotype,
+                                       EXPPlate,
+                                       median.CT.area = median(Size..Geometric.Features.2D._CT, na.rm = TRUE), 
+                                       mean.CT.area = mean(Size..Geometric.Features.2D._CT, na.rm = TRUE),
+                                       StD = sd(Size..Geometric.Features.2D._CT, na.rm = TRUE)),
+                                by = interaction(EXPPlate, Karyotype)])
+
+#write.csv(X_CT_Area, "./XCT Area.csv")
+
+X_CT_Area <- ggplot(X_CT_Area, aes(x = Karyotype, y = mean.CT.area))
+X_CT_Area + geom_boxplot(aes(fill= factor (Karyotype)), 
+                         size = 0) + 
+  scale_fill_brewer(palette = "PRGn")+ 
+  geom_jitter(size = 2, width = 0.3)+
+  #scale_color_brewer(palette="PRGn") +
+  labs(title = "X Chromosome Size")+
+  ylab('CT Area (Pixels)') +
+  scale_x_discrete(limits=c("XO", "XY", "XYY", "XX", "XXY", "XXYY", "XXX", "XXXX","XXXXY"))+
+  scale_y_continuous(limits = c(150, 375))+
+  theme_bw()+
+  theme(legend.position = "right", 
+        legend.text=element_text(size=25, face="bold"),
+        plot.title = element_text(hjust = 0.5), 
+        axis.title = element_text(size = 28, face="bold"),
+        text = element_text(size = 25), 
+        panel.background = element_rect(fill='white', colour='black'),
+        axis.text.x= element_text(colour="grey20", size=23,face="bold", angle = 60, hjust = 1),
+        axis.text.y = element_text(colour="grey20",size=23,face="bold"),
+        panel.border = element_rect(linetype = "dashed", fill = NA)) 
+
+#Y CT Area
+Y_CT_Area <- unique(AllR_Y_Data[, list(PatientNumber,
+                                     Karyotype,
+                                     EXPPlate,
+                                     median.CT.area = median(Size..Geometric.Features.2D._CT, na.rm = TRUE), 
+                                     mean.CT.area = mean(Size..Geometric.Features.2D._CT, na.rm = TRUE),
+                                     StD = sd(Size..Geometric.Features.2D._CT, na.rm = TRUE)),
+                              by = interaction(EXPPlate, Karyotype)])
+
+#write.csv(Y_CT_Area, "./YCT Area45.csv")
+
+
+Y_CT_Area <- ggplot(Y_CT_Area, aes(x = Karyotype, y = mean.CT.area))
+Y_CT_Area + geom_boxplot(aes(fill= factor (Karyotype)), size = 0) + 
+                 scale_fill_brewer(palette = "PRGn")+ 
+  geom_jitter(size = 2, width = 0.3)+
+  #scale_color_brewer(palette="PRGn") +
+  scale_x_discrete(limits=c("XY", "XYY", "XXY", "XXYY","XXXXY"))+
+  scale_y_continuous(limits = c(100, 250))+
+  labs(title = "Y Chromosome Size")+
+  ylab('CT Area (Pixels)') +
+  theme_bw()+
+  theme(legend.position = "right", 
+        legend.text=element_text(size=25, face="bold"),
+        plot.title = element_text(hjust = 0.5), 
+        axis.title = element_text(size = 28, face="bold"),
+        text = element_text(size = 25), 
+        panel.background = element_rect(fill='white', colour='black'),
+        axis.text.x= element_text(colour="grey20", size=23,face="bold", angle = 60, hjust = 1),
+        axis.text.y = element_text(colour="grey20",size=23,face="bold"),
+        panel.border = element_rect(linetype = "dashed", fill = NA)) 
+
+
+```
+
+#Chunk 9
+Xa and Xi CT Area 
+```{r Xa and Xi CTs}
+#Xa CT Area and Xi CT Area on one graph 
+X.CT.Area.Xa.Xi <- unique(AllG_X_Data[, list(PatientNumber,
+                                       Karyotype,
+                                       EXPPlate,
+                                       InactiveFlag,
+                                       median.CT.area = median(Size..Geometric.Features.2D._CT, na.rm = TRUE), 
+                                       mean.CT.area = mean(Size..Geometric.Features.2D._CT, na.rm = TRUE),
+                                       StD = sd(Size..Geometric.Features.2D._CT, na.rm = TRUE)),
+                                by = interaction(EXPPlate, Karyotype, InactiveFlag)])
+
+#write.csv(X.CT.Area.Xa.Xi, "./Xa and Xi CT Area.csv")
+
+X_CT_Area <- ggplot(X.CT.Area.Xa.Xi, aes(x = Karyotype, y = mean.CT.area))
+X_CT_Area + geom_boxplot(aes(fill= factor (InactiveFlag)), 
+                         size = 0) + 
+  scale_fill_brewer(palette = "Greys")+ 
+  geom_point(aes (colour = InactiveFlag), position= position_jitterdodge(dodge.width = 0.6, jitter.width = 0.3), size = 2)+
+  #scale_color_brewer(palette="Set1") +
+  scale_x_discrete(limits=c("XO", "XY", "XYY", "XX", "XXY", "XXYY", "XXX", "XXXX","XXXXY"))+
+  scale_y_continuous(limits = c(150, 375))+
+  labs(title = "Xa and Xi Chromosome Size")+
+  ylab('CT Area (Pixels)') +
+  theme_bw()+
+  theme(legend.position = "right", 
+        legend.text=element_text(size=25, face="bold"),
+        plot.title = element_text(hjust = 0.5), 
+        axis.title = element_text(size = 28, face="bold"),
+        text = element_text(size = 25), 
+        panel.background = element_rect(fill='white', colour='black'),
+        axis.text.x= element_text(colour="grey20", size=23,face="bold", angle = 60, hjust = 1),
+        axis.text.y = element_text(colour="grey20",size=23,face="bold"),
+        panel.border = element_rect(linetype = "dashed", fill = NA))  
+
+
+
+```
+
+#Chunk 10
+18, X, and Y CT Circularity
+```{r  18 - X - Y CT Circularity, echo=FALSE, fig.width = 12}
+#18 CT Circularity
+CT.18.Circularity <- unique(AllR_18_Data[, list(PatientNumber,
+                                         EXPPlate,
+                                         Karyotype,
+                                         median.circ = median(Circularity..Geometric.Features.2D._CT, na.rm = TRUE), 
+                                         mean.CT.circ = mean(Circularity..Geometric.Features.2D._CT, na.rm = TRUE),
+                                         StD = sd(Circularity..Geometric.Features.2D._CT, na.rm = TRUE)),
+                                  by = interaction(EXPPlate, Karyotype)])
+
+#write.csv(CT.18.Circularity, "./18CT Circularity.csv")
+
+CT_18_Circularity <- ggplot(CT.18.Circularity, aes(x = Karyotype, y = mean.CT.circ))
+CT_18_Circularity + geom_boxplot(aes(fill= factor (Karyotype)), size = 0) + 
+                 scale_fill_brewer(palette = "PRGn")+ 
+  geom_jitter( size = 2, width = 0.25)+
+  #scale_color_brewer(palette="PRGn") +
+  scale_x_discrete(limits=c("XO", "XY", "XYY", "XX", "XXY", "XXYY", "XXX", "XXXX","XXXXY"))+
+  scale_y_continuous(limits = c(0.4, 0.8))+
+  labs(title = "Chromosome 18 Circulartiy")+
+  ylab('CT Circularity') +
+  theme_bw()+
+  theme(legend.position = "right", 
+        legend.text=element_text(size=25, face="bold"),
+        plot.title = element_text(hjust = 0.5), 
+        axis.title = element_text(size = 28, face="bold"),
+        text = element_text(size = 25), 
+        panel.background = element_rect(fill='white', colour='black'),
+        axis.text.x= element_text(colour="grey20", size=25,face="bold", angle = 60, hjust = 1),
+        axis.text.y = element_text(colour="grey20",size=25,face="bold"),
+        panel.border = element_rect(linetype = "dashed", fill = NA)) 
+
+#X CT Circularity
+X.CT.Circularity <- unique(AllG_X_Data[, list(PatientNumber,
+                                Karyotype,
+                                EXPPlate,
+                                InactiveFlag,
+                                median.circ = median(Circularity..Geometric.Features.2D._CT, na.rm = TRUE), 
+                                mean.CT.circ = mean(Circularity..Geometric.Features.2D._CT, na.rm = TRUE),
+                                StD = sd(Circularity..Geometric.Features.2D._CT, na.rm = TRUE)),
+                         by = interaction(EXPPlate, Karyotype, InactiveFlag)])
+
+#write.csv(X.CT.Circularity, "./Xa and Xi CT Circularity.csv")
+
+X_CT_Circularity <- ggplot(X.CT.Circularity, aes(x = Karyotype, y = mean.CT.circ))
+X_CT_Circularity + geom_boxplot(aes(fill= factor (InactiveFlag)), size = 0) + 
+                 scale_fill_brewer(palette = "Greys")+ 
+  geom_point(aes (colour = InactiveFlag), position= position_jitterdodge(dodge.width = 0.6, jitter.width = 0.3), size = 2)+
+  #scale_color_brewer(palette="Set1") +
+  scale_x_discrete(limits=c("XO", "XY", "XYY", "XX", "XXY", "XXYY", "XXX", "XXXX","XXXXY"))+
+  scale_y_continuous(limits = c(0.4, 0.8))+
+  labs(title = "Xa and Xi Circularity")+
+  ylab('CT Circularity') +
+  theme_bw()+
+  theme(legend.position = "right", 
+        legend.text=element_text(size=25, face="bold"),
+        plot.title = element_text(hjust = 0.5), 
+        axis.title = element_text(size = 28, face="bold"),
+        text = element_text(size = 25), 
+        panel.background = element_rect(fill='white', colour='black'),
+        axis.text.x= element_text(colour="grey20", size=23,face="bold", angle = 60, hjust = 1),
+        axis.text.y = element_text(colour="grey20",size=23,face="bold"),
+        panel.border = element_rect(linetype = "dashed", fill = NA)) 
+
+
+#Y CT Circularity
+Y.CT.Circularity <- unique(AllR_Y_Data[, list(PatientNumber,
+                                Karyotype,
+                                EXPPlate,
+                                median.circ = median(Circularity..Geometric.Features.2D._CT, na.rm = TRUE), 
+                                mean.CT.circ = mean(Circularity..Geometric.Features.2D._CT, na.rm = TRUE),
+                                StD = sd(Circularity..Geometric.Features.2D._CT, na.rm = TRUE)),
+                         by = interaction(EXPPlate, Karyotype)])
+
+#write.csv(Y.CT.Circularity, "./YCT Circularity.csv")
+
+Y_CT_Circularity <- ggplot(Y.CT.Circularity, aes(x = Karyotype, y = mean.CT.circ))
+Y_CT_Circularity + geom_boxplot(aes(fill= factor (Karyotype)), size = 0) + 
+                 scale_fill_brewer(palette = "PRGn")+ 
+  geom_jitter( size = 2, width = 0.25)+
+  #scale_color_brewer(palette="PRGn") +
+  scale_x_discrete(limits=c("XY", "XYY", "XXY", "XXYY","XXXXY"))+
+  scale_y_continuous(limits = c(0.4, 0.8))+
+  labs(title = "Y Chromosome Circulartiy")+
+  ylab('CT Circularity') +
+  theme_bw()+
+  theme(legend.position = "right", 
+        legend.text=element_text(size=25, face="bold"),
+        plot.title = element_text(hjust = 0.5), 
+        axis.title = element_text(size = 28, face="bold"),
+        text = element_text(size = 25), 
+        panel.background = element_rect(fill='white', colour='black'),
+        axis.text.x= element_text(colour="grey20", size=25,face="bold", angle = 60, hjust = 1),
+        axis.text.y = element_text(colour="grey20",size=25,face="bold"),
+        panel.border = element_rect(linetype = "dashed", fill = NA)) 
+
+```
+
+#Chunk 11
+Box Plot of Normalized Number of Xist pixels in the X segmented mask. Scatter Plot of size of Active CT vs size of Inactive CTs on a per active-CT basis (per cell). Xi / Xa is graphed as a ratio, and occurances of Xa being grater than Xi or less than Xi are printed.
+```{r Xist QC - Xa to Xi ratio, fig.width = 16}
+AllG_Data <- transform(AllG_X_Data, Norm.XistPixelsInXMask =(XistPixelsInXMask / Size..Geometric.Features.2D.)*100)
+
+##################
+
+SizeOfActiveX2 <-AllG_X_Data[, SizeOfActive := .SD[InactiveFlag == "Active", Size..Geometric.Features.2D._CT], by = .(Well.Position, FieldNumber, NucleusID, EXPPlate, PatientNumber)]
+
+SizeOfActiveX2 <- SizeOfActiveX2 [SizeOfActiveX2$InactiveFlag == "Inactive" , ]
+SizeOfActiveX2$AtoIratio <- (SizeOfActiveX2$Size..Geometric.Features.2D._CT / SizeOfActiveX2$SizeOfActive)
+
+#Scatter Plot of size of Active CT vs size of Inactive CTs on a per active-CT basis (per cell)
+AvsIn <- ggplot(SizeOfActiveX2, aes(x=Size..Geometric.Features.2D._CT, y = SizeOfActive , fill=Karyotype)) 
+
+AvsIn + geom_point(aes(color=Karyotype), size=0.7) + 
+  geom_abline(intercept = 0, slope = 1)+
+  scale_colour_grey()+
+  #geom_smooth()+
+  scale_y_continuous(limits = c(0, 600))+
+  scale_x_continuous(limits = c(0, 600))+
+  #scale_x_discrete(limits=c("XO", "XY", "XYY", "XX", "XXY", "XXYY", "XXX", "XXXX","XXXXY"))+
+  #geom_smooth(method=lm, se=FALSE) +
+  facet_wrap(~ Karyotype, ncol=3) +
+  ggtitle('Xi to Xa CT Area Ratio per Cell')+
+  ylab( 'CT size of Xa (pixels)')+
+  xlab( ' CT size of Xi (pixels)')+
+  theme(legend.position = "right", legend.text=element_text(size=18, face="bold"), plot.title = element_text(hjust = 0.5), axis.text = element_text(size = 18), axis.title = element_text(size = 18, face="bold"),text = element_text(size = 18), panel.background = element_rect(fill='white', colour='black'), axis.text.x= element_text(colour="grey20",size=18,face="bold"), axis.text.y = element_text(colour="grey20",size=18,face="bold"), panel.border = element_rect(linetype = "dashed", fill = NA)) 
+
+##################
+
+X.CT.Area.Ratio <- unique(SizeOfActiveX2[, list(PatientNumber,
+                                       Karyotype,
+                                       EXPPlate,
+                                       median.CT.area.ratio = median(AtoIratio, na.rm = TRUE), 
+                                       mean.CT.area.ratio = mean(AtoIratio, na.rm = TRUE),
+                                       StD = sd(AtoIratio, na.rm = TRUE)),
+                                by = interaction(EXPPlate, Karyotype)])
+
+#write.csv(X.CT.Area.Ratio, "./XCT Area Ratio.csv")
+
+InactiveTOactiveRatio <- ggplot(X.CT.Area.Ratio, aes(x = Karyotype, y = mean.CT.area.ratio))
+InactiveTOactiveRatio + geom_boxplot(aes(fill= factor (Karyotype)), 
+                         size = 0) + 
+  scale_fill_brewer(palette = "PRGn")+ 
+  geom_jitter(size = 2, width = 0.3)+
+  #scale_color_brewer(palette="PRGn") +
+  scale_x_discrete(limits=c("XX", "XXY", "XXYY", "XXX", "XXXX","XXXXY"))+
+  scale_y_continuous(limits = c(0.5, 1.2))+
+  labs(title = "Xi to Xa CT Area Ratio per Cell")+
+  ylab('Xi to Xa CT Area Ratio') +
+  theme_bw()+
+  theme(legend.position = "right", 
+        legend.text=element_text(size=25, face="bold"),
+        plot.title = element_text(hjust = 0.5), 
+        axis.title = element_text(size = 28, face="bold"),
+        text = element_text(size = 25), 
+        panel.background = element_rect(fill='white', colour='black'),
+        axis.text.x= element_text(colour="grey20", size=23,face="bold", angle = 60, hjust = 1),
+        axis.text.y = element_text(colour="grey20",size=23,face="bold"),
+        panel.border = element_rect(linetype = "dashed", fill = NA)) 
+
+
+##################
+
+SizeOfActiveX2$CID[SizeOfActiveX2$Size..Geometric.Features.2D._CT <= SizeOfActiveX2$SizeOfActive] <- 'Xa > Xi'
+SizeOfActiveX2$CID[SizeOfActiveX2$Size..Geometric.Features.2D._CT >= SizeOfActiveX2$SizeOfActive] <- 'Xa < Xi'
+
+table(SizeOfActiveX2$CID, group = SizeOfActiveX2$Karyotype)
+
+##################
+
+#Meannnnnnnnnn Box Plot
+g <- ggplot(AllG_X_Data, aes(x=Karyotype, y = Mean.XSegMaskOnFarRed. , fill=InactiveFlag)) 
+g + geom_boxplot(outlier.size = 0) + 
+  #geom_point(position=position_jitterdodge(), size = 0.15)+
+  ggtitle('Xist Intensity in X Chromosome Mask')+
+  ylab( 'Mean Xist Intensity in X Mask (A.U.)')+
+  scale_x_discrete(limits=c("XO", "XY", "XYY", "XX", "XXY", "XXYY", "XXX", "XXXX","XXXXY"))+
+  ylim(c(0, 485))+
+  theme(legend.position = "right", 
+        legend.text=element_text(size=25, face="bold"),
+        plot.title = element_text(hjust = 0.5), 
+        axis.title = element_text(size = 28, face="bold"),
+        text = element_text(size = 25), 
+        panel.background = element_rect(fill='white', colour='black'),
+        axis.text.x= element_text(colour="grey20", size=25,face="bold", angle = 60, hjust = 1),
+        axis.text.y = element_text(colour="grey20",size=25,face="bold"),
+        panel.border = element_rect(linetype = "dashed", fill = NA)) 
+
+
+```
+
+#Chunk 12
+These plots for the percent of each CT in each of the equi-distance shells. First we calculate the mean (ave_perc) of percent per cell for all cells in a particular well and then we plot as geom_point plots 
+```{r CT ShellAnalysis 18 - X - Y,  echo=FALSE, fig.height = 6}
+########### 18 CT Equidistant Shell Positon
+AllR_18_Data$Pct.Shell1 <- (AllR_18_Data$NumPixelsdistantShell1 / AllR_18_Data$NumPixelsAlldistantShells ) 
+AllR_18_Data$Pct.Shell2 <- (AllR_18_Data$NumPixelsdistantShell2 / AllR_18_Data$NumPixelsAlldistantShells ) 
+AllR_18_Data$Pct.Shell3 <- (AllR_18_Data$NumPixelsdistantShell3 / AllR_18_Data$NumPixelsAlldistantShells ) 
+AllR_18_Data$Pct.Shell4 <- (AllR_18_Data$NumPixelsdistantShell4 / AllR_18_Data$NumPixelsAlldistantShells ) 
+AllR_18_Data$Pct.Shell5 <- (AllR_18_Data$NumPixelsdistantShell5 / AllR_18_Data$NumPixelsAlldistantShells ) 
+
+R_Data_melt_18 <- melt(AllR_18_Data, measure.vars = c("Pct.Shell1", "Pct.Shell2", "Pct.Shell3", "Pct.Shell4", "Pct.Shell5" ),
+variable.name = "Shell.Number", na.rm = FALSE, value.name = "value", factorsAsStrings = TRUE)
+
+R_Data_Pct_Per_Shell_18 <- R_Data_melt_18[, .(ave_perc = mean(value))
+                      , by = .(Well.Position, Karyotype, Shell.Number, CT.Probe.Color, EXPPlate, PatientNumber)]
+
+R18 <- R_Data_Pct_Per_Shell_18 %>%
+     group_by(Karyotype, Shell.Number) %>%
+     summarise(mean_Shell = 100*mean(ave_perc),  # calculates the mean of each group
+     sd_Shell = 100*sd(ave_perc), # calculates the standard deviation of each group
+     ymax = (mean_Shell + sd_Shell), # calculates the Errorbar Max
+     ymin = (mean_Shell - sd_Shell)) # calculates the Errorbar Max
+
+R18CT <- ggplot(R18, aes(x= Shell.Number, 
+                     y= mean_Shell, 
+                     group = Karyotype),
+              fill = Karyotype)+
+              #geom_line(position = position_dodge(width = 0.9),
+              #          aes(group = Karyotype,
+              #               colour= Karyotype,
+              #              linetype = Karyotype),
+              #          size =1.0)+
+              geom_point(stat="identity",
+                         position = position_dodge(width = 0.9),
+                         aes(colour=Karyotype), 
+                             #shape= Karyotype),
+                             size = 6)+
+              scale_colour_brewer(palette = "Paired")+
+              geom_errorbar(aes(ymin = ymin,
+                                ymax= ymax), 
+                            colour="black", 
+                            width = 0.2,
+                            position = position_dodge(width = 0.9)) +
+              scale_y_continuous(limits = c(000, 45))+
+              xlab('Shell Number')+
+              ylab('Percent of CT in Shell')+
+              labs(title = "18 CT Equidistant Shell Analysis")+
+              theme_bw()+
+              theme(legend.position = "right",        
+                    legend.text=element_text(size=25, face="bold"),     
+                    plot.title = element_text(hjust = 0.5),      
+                    axis.title = element_text(size = 28, face="bold"),   
+                    text = element_text(size = 25),    
+                    panel.background = element_rect(fill='white', colour='black'),       
+                    axis.text.x= element_text(colour="grey20", size=25,face="bold", hjust = 1),    
+                    axis.text.y = element_text(colour="grey20",size=25,face="bold"),
+                    panel.border = element_rect(linetype = "dashed", fill = NA))  
+
+
+print(R18CT)
+
+########### X CT Equidistant Shell Positon
+
+AllG_X_Data$Pct.Shell1 <- (AllG_X_Data$NumPixelsdistantShell1 / AllG_X_Data$NumPixelsAlldistantShells ) 
+AllG_X_Data$Pct.Shell2 <- (AllG_X_Data$NumPixelsdistantShell2 / AllG_X_Data$NumPixelsAlldistantShells ) 
+AllG_X_Data$Pct.Shell3 <- (AllG_X_Data$NumPixelsdistantShell3 / AllG_X_Data$NumPixelsAlldistantShells ) 
+AllG_X_Data$Pct.Shell4 <- (AllG_X_Data$NumPixelsdistantShell4 / AllG_X_Data$NumPixelsAlldistantShells ) 
+AllG_X_Data$Pct.Shell5 <- (AllG_X_Data$NumPixelsdistantShell5 / AllG_X_Data$NumPixelsAlldistantShells ) 
+
+G_Data_melt_X <- melt(AllG_X_Data, measure.vars = c("Pct.Shell1", "Pct.Shell2", "Pct.Shell3", "Pct.Shell4", "Pct.Shell5" ),
+variable.name = "Shell.Number", na.rm = FALSE, value.name = "value", factorsAsStrings = TRUE)
+
+G_Data_Pct_Per_Shell_X <- G_Data_melt_X[, .(ave_perc = mean(value))
+                      , by = .(Well.Position, Karyotype, Shell.Number, CT.Probe.Color, EXPPlate, PatientNumber)]
+
+X <- G_Data_Pct_Per_Shell_X %>%
+     group_by(Karyotype, Shell.Number) %>%
+     summarise(mean_Shell = 100*mean(ave_perc),  # calculates the mean of each group
+     sd_Shell = 100*sd(ave_perc), # calculates the standard deviation of each group
+     ymax = (mean_Shell + sd_Shell), # calculates the Errorbar Max
+     ymin = (mean_Shell - sd_Shell)) # calculates the Errorbar Max
+
+XCT <- ggplot(X, aes(x= Shell.Number, 
+                     y= mean_Shell, 
+                     group = Karyotype),
+              fill = Karyotype,
+              position = position_dodge(width = 0.9))+
+              #geom_line(position = position_dodge(width = 0.9),
+              #          aes(group = Karyotype,
+              #               colour= Karyotype,
+              #              linetype = Karyotype),
+              #          size =1.0)+
+              geom_point(stat="identity",
+                         position = position_dodge(width = 0.9),
+                         aes(colour=Karyotype), 
+                             #shape= Karyotype),
+                             size = 6)+
+              scale_colour_brewer(palette = "Paired")+
+              geom_errorbar(aes(ymin = ymin,
+                                ymax= ymax), 
+                            colour="black", 
+                            width = 0.2,
+                            position = position_dodge(width = 0.9)) +
+              scale_y_continuous(limits = c(000, 45))+
+              labs(title = "X Chromosome")+
+              xlab('Shell Number')+
+              ylab('Percent of CT in Shell')+
+              theme_bw()+
+              theme(legend.position = "right", 
+                    legend.text=element_text(size=25, face="bold"),
+                    plot.title = element_text(hjust = 0.5), 
+                    axis.title = element_text(size = 28, face="bold"),
+                    text = element_text(size = 25), 
+                    panel.background = element_rect(fill='white', colour='black'),
+                    axis.text.x= element_text(colour="grey20", size=25,face="bold", hjust = 1),
+                    axis.text.y = element_text(colour="grey20",size=25,face="bold"),
+                    panel.border = element_rect(linetype = "dashed", fill = NA))   
+
+print(XCT)
+              
+########### Xa and Xi CT Equidistant Shell Positon
+
+AllG_X_Data$Pct.Shell1 <- (AllG_X_Data$NumPixelsdistantShell1 / AllG_X_Data$NumPixelsAlldistantShells ) 
+AllG_X_Data$Pct.Shell2 <- (AllG_X_Data$NumPixelsdistantShell2 / AllG_X_Data$NumPixelsAlldistantShells ) 
+AllG_X_Data$Pct.Shell3 <- (AllG_X_Data$NumPixelsdistantShell3 / AllG_X_Data$NumPixelsAlldistantShells ) 
+AllG_X_Data$Pct.Shell4 <- (AllG_X_Data$NumPixelsdistantShell4 / AllG_X_Data$NumPixelsAlldistantShells ) 
+AllG_X_Data$Pct.Shell5 <- (AllG_X_Data$NumPixelsdistantShell5 / AllG_X_Data$NumPixelsAlldistantShells ) 
+
+G_Data_melt_XaXi <- melt(AllG_X_Data, measure.vars = c("Pct.Shell1", "Pct.Shell2", "Pct.Shell3", "Pct.Shell4", "Pct.Shell5" ),
+variable.name = "Shell.Number", na.rm = FALSE, value.name = "value", factorsAsStrings = TRUE)
+
+G_Data_Pct_Per_Shell_XaXi <- G_Data_melt_XaXi[, .(ave_perc = mean(value))
+                      , by = .(Well.Position, Karyotype, Shell.Number, CT.Probe.Color, EXPPlate, PatientNumber, InactiveFlag)]
+
+XaXi <- G_Data_Pct_Per_Shell_XaXi %>%
+     group_by(Karyotype, Shell.Number, InactiveFlag) %>%
+     summarise(mean_Shell = 100*mean(ave_perc),  # calculates the mean of each group
+     sd_Shell = 100*sd(ave_perc), # calculates the standard deviation of each group
+     ymax = (mean_Shell + sd_Shell), # calculates the Errorbar Max
+     ymin = (mean_Shell - sd_Shell)) # calculates the Errorbar Max
+
+XaXiCT <- ggplot(XaXi, aes(x= Shell.Number, 
+                     y= mean_Shell, 
+                     group = interaction(InactiveFlag, Karyotype)),
+              fill = Karyotype,
+              position = position_dodge(width = 0.9))+
+              #geom_line(aes(group = interaction(Karyotype, InactiveFlag),
+              #              colour= Karyotype),
+              #          linetype = "dashed",
+              #          position = position_dodge(width = 0.9),
+              #          size =1.0)+
+              geom_point(stat="identity",
+                         position = position_dodge(width = 0.9),
+                         aes(colour=Karyotype, 
+                             shape= InactiveFlag),
+                             size = 6)+
+              #scale_shape_manual(values = c(16, 10))+
+              scale_colour_brewer(palette = "Paired")+
+              geom_errorbar(aes(ymin = ymin,
+                                ymax= ymax), 
+                            colour="black", 
+                            width = 0.2,
+                            position = position_dodge(width = 0.9)) +
+              scale_y_continuous(limits = c(000, 45))+
+              xlab('Shell Number')+
+              ylab('Percent of CT in Shell')+
+              labs(title = "Xa and Xi Chromosomes")+
+              theme_bw()+
+              theme(legend.position = "right",        
+                    legend.text=element_text(size=25, face="bold"),     
+                    plot.title = element_text(hjust = 0.5),      
+                    axis.title = element_text(size = 28, face="bold"),   
+                    text = element_text(size = 25),    
+                    panel.background = element_rect(fill='white', colour='black'),       
+                    axis.text.x= element_text(colour="grey20", size=25,face="bold", hjust = 1),    
+                    axis.text.y = element_text(colour="grey20",size=25,face="bold"),
+                    panel.border = element_rect(linetype = "dashed", fill = NA))  
+
+print(XaXiCT)
+
+########### Y CT Equidistant Shell Positon
+
+AllR_Y_Data$Pct.Shell1 <- (AllR_Y_Data$NumPixelsdistantShell1 / AllR_Y_Data$NumPixelsAlldistantShells ) 
+AllR_Y_Data$Pct.Shell2 <- (AllR_Y_Data$NumPixelsdistantShell2 / AllR_Y_Data$NumPixelsAlldistantShells ) 
+AllR_Y_Data$Pct.Shell3 <- (AllR_Y_Data$NumPixelsdistantShell3 / AllR_Y_Data$NumPixelsAlldistantShells ) 
+AllR_Y_Data$Pct.Shell4 <- (AllR_Y_Data$NumPixelsdistantShell4 / AllR_Y_Data$NumPixelsAlldistantShells ) 
+AllR_Y_Data$Pct.Shell5 <- (AllR_Y_Data$NumPixelsdistantShell5 / AllR_Y_Data$NumPixelsAlldistantShells ) 
+
+R_Data_melt_Y <- melt(AllR_Y_Data, measure.vars = c("Pct.Shell1", "Pct.Shell2", "Pct.Shell3", "Pct.Shell4", "Pct.Shell5" ),
+variable.name = "Shell.Number", na.rm = FALSE, value.name = "value", factorsAsStrings = TRUE)
+
+R_Data_Pct_Per_Shell_Y <- R_Data_melt_Y[, .(ave_perc = mean(value))
+                      , by = .(Well.Position, Karyotype, Shell.Number, CT.Probe.Color, EXPPlate, PatientNumber)]
+
+Y <- R_Data_Pct_Per_Shell_Y %>%
+     group_by(Karyotype, Shell.Number) %>%
+     summarise(mean_Shell = 100*mean(ave_perc),  # calculates the mean of each group
+     sd_Shell = 100*sd(ave_perc), # calculates the standard deviation of each group
+     ymax = (mean_Shell + sd_Shell), # calculates the Errorbar Max
+     ymin = (mean_Shell - sd_Shell)) # calculates the Errorbar Max
+
+YCT <- ggplot(Y, aes(x= Shell.Number, 
+                     y= mean_Shell, 
+                     group = Karyotype),
+              fill = Karyotype)+
+              #geom_line(position = position_dodge(width = 0.9),
+              #          aes(group = Karyotype,
+              #               colour= Karyotype,
+              #              linetype = Karyotype),
+              #          size =1.0)+
+              geom_point(stat="identity",
+                         position = position_dodge(width = 0.9),
+                         aes(colour=Karyotype), 
+                             #shape= Karyotype),
+                             size = 6)+
+              scale_colour_brewer(palette = "Paired")+
+              geom_errorbar(aes(ymin = ymin,
+                                ymax= ymax), 
+                            colour="black", 
+                            width = 0.2,
+                            position = position_dodge(width = 0.9)) +
+              scale_y_continuous(limits = c(000, 45))+
+              xlab('Shell Number')+
+              ylab('Percent of CT in Shell')+
+              labs(title = "Y Chromosome")+
+              theme_bw()+
+              theme(legend.position = "right",        
+                    legend.text=element_text(size=25, face="bold"),     
+                    plot.title = element_text(hjust = 0.5),      
+                    axis.title = element_text(size = 28, face="bold"),   
+                    text = element_text(size = 25),    
+                    panel.background = element_rect(fill='white', colour='black'),       
+                    axis.text.x= element_text(colour="grey20", size=25,face="bold", hjust = 1),    
+                    axis.text.y = element_text(colour="grey20",size=25,face="bold"),
+                    panel.border = element_rect(linetype = "dashed", fill = NA))  
+
+print(YCT)
+
+```
+
+#Chunk 13
+Number of Nuclei detected for Chromosomes 18 - X - Y
+```{r Nuclei Detected for Chr 18 - X - Y}
+#18
+Number_of_18Nuclei_Analyzed <- AllR_18_Data[ ,.(CT_number = .N), by = .(Well.Position,
+                                                           Karyotype,
+                                                           FieldNumber,
+                                                           NucleusID,
+                                                           PatientNumber,
+                                                           EXPPlate,
+                                                           Size..Geometric.Features.2D.,
+                                                           CT.Probe.Color)]
+
+table(Number_of_18Nuclei_Analyzed$Karyotype, group = Number_of_18Nuclei_Analyzed$EXPPlate)
+
+#X
+Number_of_XNuclei_Analyzed  <- AllG_X_Data[ ,.(CT_number = .N), by = .(Well.Position,
+                                                         Karyotype,
+                                                         FieldNumber,
+                                                         NucleusID,
+                                                         PatientNumber,
+                                                         EXPPlate,
+                                                         Size..Geometric.Features.2D.,
+                                                         CT.Probe.Color)]
+
+table(Number_of_XNuclei_Analyzed$Karyotype, group = Number_of_XNuclei_Analyzed$EXPPlate)
+
+#Y
+Number_of_YNuclei_Analyzed <- AllR_Y_Data[ ,.(CT_number = .N), by = .(Well.Position,
+                                                         Karyotype,
+                                                         FieldNumber,
+                                                         NucleusID,
+                                                         PatientNumber,
+                                                         EXPPlate,
+                                                         Size..Geometric.Features.2D.,
+                                                         CT.Probe.Color)]
+
+table(Number_of_YNuclei_Analyzed$Karyotype, group = Number_of_YNuclei_Analyzed$EXPPlate)
+
+```
