@@ -1,1 +1,1 @@
-Please download the Keras+Tensorflow based model weights (.h5) for segmenting chromosome territories from here.
+Please download the Keras+Tensorflow based model weights (.h5) for segmenting chromosome territories from [here](https://github.com/CBIIT/Misteli-Lab-CCR-NCI/releases/download/v0.1/model_weights_george.h5).
