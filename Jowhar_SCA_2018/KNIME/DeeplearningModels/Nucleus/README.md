@@ -1,1 +1,1 @@
-Please download the Keras+Tensorflow based model weights (.h5) for segmenting DAPI stained nuclei from here.
+Please download the Keras+Tensorflow based model weights (.h5) for segmenting DAPI stained nuclei from [here](https://github.com/CBIIT/Misteli-Lab-CCR-NCI/releases/download/v0.1/weights_uint16_dropout_noaug_mask_fitl32.h5).
