@@ -5,9 +5,9 @@ KNIME-based Image Analysis Workflows, R markdown scripts, and secondary data for
 
 **NOTE**
 
-Please download the XY18_CTSeg_Tables.zip from [release v0.1](https://github.com/CBIIT/Misteli-Lab-CCR-NCI/releases/download/v0.1/XY18_CTSeg_Tables.zip) and unzip the file into "Jowhar_SCA_2018/R/XY18_CTSeg_Tables" folder.
+Please download the XY18_CTSeg_Tables.zip from [here](https://github.com/CBIIT/Misteli-Lab-CCR-NCI/releases/download/v0.1/XY18_CTSeg_Tables.zip) and unzip the file into "Jowhar_SCA_2018/R/XY18_CTSeg_Tables" folder.
 
-Please download the XistXY_CTSeg_Tables.zip from [release v0.1](https://github.com/CBIIT/Misteli-Lab-CCR-NCI/releases/download/v0.1/XistXY_CTSeg_Tables.zip) and unzip the file into "Jowhar_SCA_2018/R/XistXY_CTSeg_Tables" folder.
+Please download the XistXY_CTSeg_Tables.zip from [here](https://github.com/CBIIT/Misteli-Lab-CCR-NCI/releases/download/v0.1/XistXY_CTSeg_Tables.zip) and unzip the file into "Jowhar_SCA_2018/R/XistXY_CTSeg_Tables" folder.
 
 Please download the Keras+Tensorflow based model weights (.h5) for segmenting DAPI stained nuclei from [here](https://github.com/CBIIT/Misteli-Lab-CCR-NCI/releases/download/v0.1/weights_uint16_dropout_noaug_mask_fitl32.h5).
 
