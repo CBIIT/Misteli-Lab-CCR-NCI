@@ -22,15 +22,12 @@ R scripts with (secondary) data and KNIME (version 3.2.1) workflows for _[Jowhar
 
 ## For further details please contact:
 
-**Tom Misteli, Ph.D.**  
-Email: [mistelit@mail.nih.gov](mailto:mistelit@mail.nih.gov)
+**Tom Misteli, Ph.D.** [mistelit@mail.nih.gov](mailto:mistelit@mail.nih.gov)
 
 [Director, Center for Cancer Research](https://ccr.cancer.gov/about)  
-
-NIH Distinguished Investigator
-Head, Cell Biology of Genomes Group
-[Laboratory of Receptor Biology and Gene Expression](https://ccr.cancer.gov/Laboratory-of-Receptor-Biology-and-Gene-Expression)  
-
+NIH Distinguished Investigator  
+[Head, Cell Biology of Genomes Group](https://ccr.cancer.gov/Laboratory-of-Receptor-Biology-and-Gene-Expression/tom-misteli)   
+[Laboratory of Receptor Biology and Gene Expression](https://ccr.cancer.gov/Laboratory-of-Receptor-Biology-and-Gene-Expression)   
 Center for Cancer Research  
 National Cancer Institute  
-National Institues of Health, Bethesda, MD 20892.
+National Institues of Health, Bethesda, MD, USA 20892
