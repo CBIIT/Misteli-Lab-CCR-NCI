@@ -5,7 +5,7 @@ Collection of analysis scripts, workflows, (primary/secondary) data used in publ
 ### June 13, 2018
 KNIME-based Image Analysis Workflows, R markdown scripts, and secondary data for _[Jowhar et. al., 2018](http://biorxiv.org/cgi/content/short/346742v1)_.
 
-### Sept 10, 2017
+### Sept 20, 2017
 R scripts with (secondary) data and KNIME (version 3.2.1) workflows for _[Gudla et. al., CSH SQB, 2017](https://doi.org/10.1101/sqb.2017.82.033761)_.
 
 ### Sept 07, 2017
