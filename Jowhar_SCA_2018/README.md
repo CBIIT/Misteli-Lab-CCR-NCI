@@ -3,9 +3,9 @@ _[Jowhar et. al.](http://biorxiv.org/cgi/content/short/346742v1),_ "Effects of H
 
 KNIME-based Image Analysis Workflows, R markdown scripts, and secondary data for [Jowhar et. al., 2018](http://biorxiv.org/cgi/content/short/346742v1).
 
-**NOTE**
+##NOTES:
 
-In addition to downloading this folder, you will have to manually download the following files (> 25 MB) and place them in appropriate folder(s).
+In addition to downloading this folder, you will also have to manually download the following files (> 25 MB) and place them in appropriate (sub-)folder(s).
 
 1) Please download the XY18_CTSeg_Tables.zip from [here](https://github.com/CBIIT/Misteli-Lab-CCR-NCI/releases/download/v0.1/XY18_CTSeg_Tables.zip) and unzip the file into "Jowhar_SCA_2018/R/XY18_CTSeg_Tables" folder.
 
