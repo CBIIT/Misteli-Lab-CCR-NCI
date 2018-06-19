@@ -14,7 +14,7 @@ R scripts with (secondary) data and KNIME (version 3.2.1) workflows for _[Jowhar
 ## Description of folders:
 [Jowhar_SCA_2018](https://github.com/CBIIT/Misteli-Lab-CCR-NCI/tree/master/Jowhar_SCA_2018): Jowhar _et. al._, "Effects of Human Sex Chromosome Dosage on Spatial Chromosome Organization". _Submitted to Molecular Biology of the Cell_. Also at _[bioRxiv: 10.1101/346742](http://biorxiv.org/cgi/content/short/346742v1)_.
 
-[Jowhar_Methods_2017](https://github.com/CBIIT/Misteli-Lab-CCR-NCI/tree/master/Jowhar_Methods_2017): Jowhar _et. al._, "HiCTMap: Detection and Analysis of Chromosome Territory Structure and Position by High-throughput Imaging". _Methods. 2018 Jun 1;142:30-38. doi: 10.1016/j.ymeth.2018.01.013. Epub 2018 Feb 10_. Also at _[bioRxiv 185942](https://doi.org/10.1101/185942)_.
+[Jowhar_Methods_2017](https://github.com/CBIIT/Misteli-Lab-CCR-NCI/tree/master/Jowhar_Methods_2017): Jowhar _et. al._, "HiCTMap: Detection and Analysis of Chromosome Territory Structure and Position by High-throughput Imaging". _Methods. 2018 Jun 1;142:30-38. [doi: 10.1016/j.ymeth.2018.01.013](https://doi.org/10.1016/j.ymeth.2018.01.013). Epub 2018 Feb 10_. Also at _[bioRxiv 185942](https://doi.org/10.1101/185942)_.
 
 [Gudla_CSH_2017](https://github.com/CBIIT/Misteli-Lab-CCR-NCI/tree/master/Gudla_CSH_2017): Gudla _et. al._, "SpotLearn: Convolutional Neural Network for Detection of Fluorescence In Situ Hybridization (FISH) Signals in High-Throughput Imaging Approaches". Cold Spring Harb Symp Quant Biol. 2017 Nov 28. pii: 033761. _[doi: 10.1101/sqb.2017.82.033761](https://doi.org/10.1101/sqb.2017.82.033761)_.
 
