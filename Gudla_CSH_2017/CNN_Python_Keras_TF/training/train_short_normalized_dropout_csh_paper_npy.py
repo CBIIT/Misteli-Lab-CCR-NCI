@@ -56,7 +56,7 @@ def get_unet_short_dropout():
     conv4 = Dropout(0.2)(conv4) 
     conv4 = Conv2D(128, (3, 3), activation='relu', padding='same')(conv4)
 
-    up4 = concatenate([Conv2DTranspose(64, (2, 2), strides=(2, 2), padding='same')(conv2), conv1], axis=3)
+    up4 = concatenate([Conv2DTranspose(64, (2, 2), strides=(2, 2), padding='same')(conv4), conv1], axis=3)
     conv5 = Conv2D(64, (3, 3), activation='relu', padding='same')(up4)
     conv5 = Dropout(0.2)(conv5) 
     conv5 = Conv2D(64, (3, 3), activation='relu', padding='same')(conv5)
