@@ -11,6 +11,12 @@ from keras.callbacks import ModelCheckpoint,ReduceLROnPlateau,EarlyStopping,CSVL
 from keras import backend as K
 from keras.models import load_model
 
+## imports for plot_prediction
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+# Kludge for raw_input Py2x to Py3x
+from six.moves import input as raw_input
+
 K.set_image_data_format('channels_last')  # TF dimension ordering in this code
 
 img_rows = 128
@@ -145,6 +151,65 @@ def predict():
     imgs_mask_test = model.predict(imgs_test, batch_size=256,verbose=1)
     np.save('../input_data/Green_Red_FarRed_Annotated_FISH_Dilation4Conn1Iter_Testing_128by128_normalize_dropout_Mask_Pred_cshpaper.npy', np.squeeze(imgs_mask_test))
 
+ def plot_prediction():
+
+    print('-'*30)
+    print('Loading and preprocessing test data...')
+    print('-'*30)
+
+    imgs_test = np.load('../input_data/Green_Red_FarRed_Annotated_FISH_Dilation4Conn1Iter_Testing_128by128_normalize.npy')
+    imgs_mask_test = np.load('../input_data/Green_Red_FarRed_Annotated_FISH_Dilation4Conn1Iter_Testing_128by128_normalize_Mask.npy')
+    imgs_mask_test_predict = np.load('../input_data/Green_Red_FarRed_Annotated_FISH_Dilation4Conn1Iter_Testing_128by128_normalize_dropout_Mask_Pred_cshpaper.npy')
+
+    imgs_test = imgs_test.astype('float32')
+    imgs_mask_test = imgs_mask_test.astype('float32')
+    imgs_mask_test /= 255.  # scale masks to [0, 1]
+	
+    print('Shape of input, target and prediction images ', imgs_test.shape, imgs_mask_test.shape, imgs_mask_test_predict.shape)    
+    print('Input images min, max before normalization ', np.amin(imgs_test),np.amax(imgs_test))
+    print('Target images min, max before normalization ', np.min(imgs_mask_test),np.max(imgs_mask_test))
+    print('Prediction images min, max before normalization ', np.min(imgs_mask_test_predict),np.max(imgs_mask_test_predict))
+    plt.ion()
+
+    for i in range(0,imgs_test.shape[0]):    
+      img = np.squeeze(imgs_test[i,:,:])
+      img_amax = np.amax(img)
+      img_amin = np.amin(img)
+	  
+      mask = np.squeeze(imgs_mask_test[i,:,:])
+      mask_amax = np.amax(mask)
+      mask_amin = np.amin(mask)
+
+      mask_pre = np.squeeze(imgs_mask_test_predict[i,:,:])
+      mask_pre_amax = np.amax(mask_pre)
+      mask_pre_amin = np.amin(mask_pre)
+	  
+      fig = plt.figure(1)
+      a = fig.add_subplot(1,3,1)
+      imgplot = plt.imshow(img)
+      imgplot.set_clim(img_amin,img_amax)
+      a.set_title('Input : '+str(i))
+      plt.colorbar(orientation ='horizontal')
+
+      a = fig.add_subplot(1,3,2)
+      imgplot = plt.imshow(mask)
+      imgplot.set_clim(mask_amin, mask_amax)
+      a.set_title('GroundTruth' + ' ' +str(i))
+      plt.colorbar(orientation ='horizontal')
+
+      a = fig.add_subplot(1,3,3)
+      imgplot = plt.imshow(mask_pre)
+      imgplot.set_clim(mask_pre_amin, mask_pre_amax)
+      a.set_title('Prediction : '+str(i))
+      plt.colorbar(orientation ='horizontal')
+
+      plt.show()
+      _ = raw_input("Press [enter] to continue.")      
+      #plt.pause(2)
+      plt.draw()
+      plt.clf()
+
 if __name__ == '__main__':
     train()
     predict()
+    plot_prediction()
